@@ -1,12 +1,13 @@
 /**
  * ============================================================================
- *  Reserva de Salas – OGPP UNMSM  ·  Aplicación web (Apps Script + Google Sheets)
+ *  Reserva de Salas – OGPL UNMSM  ·  Aplicación web (Apps Script + Google Sheets)
  * ----------------------------------------------------------------------------
- *  La página (Index.html) llama a las funciones api* de este archivo con
- *  google.script.run. La identidad SIEMPRE se toma de la cuenta Google de quien
- *  abre la página (Session.getActiveUser), nunca de datos enviados por el navegador.
+ *  Acceso con correo y contraseña propios de la aplicación (no depende de la
+ *  cuenta Google del visitante). La página (Index.html) llama a las funciones
+ *  api* con google.script.run, enviando el token de sesión que entrega apiLogin.
  *
- *  Primer uso: ejecutar setup() una vez desde el editor y publicar la web app.
+ *  Primer uso: ejecutar setup() una vez desde el editor (muestra la contraseña
+ *  temporal del administrador en el registro de ejecución) y publicar la web app.
  * ============================================================================
  */
 
@@ -25,7 +26,7 @@ const ENCABEZADOS = {
   Reservas: ['ID_Reserva', 'Fecha_Registro', 'Sala', 'Fecha_Reserva', 'Hora_Inicio', 'Hora_Fin',
     'Oficina_Solicitante', 'Responsable', 'Correo_Contacto', 'Tema_Reunion', 'Asistentes',
     'Estado', 'Cancelado_Por', 'Fecha_Cancelacion', 'Motivo_Cancelacion'],
-  Usuarios: ['Correo', 'Nombre', 'Oficina', 'Rol', 'Activo'],
+  Usuarios: ['Correo', 'Nombre', 'Oficina', 'Rol', 'Activo', 'Hash_Contrasena', 'Sal', 'Debe_Cambiar', 'Fecha_Creacion', 'Ultimo_Acceso'],
   Salas: ['Sala', 'Capacidad', 'Ubicacion', 'Equipamiento', 'Correo_Responsable', 'Activa'],
   Config: ['Clave', 'Valor', 'Descripcion'],
   Feriados: ['Fecha', 'Descripcion'],
@@ -41,8 +42,11 @@ const CONFIG_DEFECTO = [
   ['ANTICIPACION_MAX_DIAS', '60', 'Cuántos días hacia adelante se puede reservar.'],
   ['PASO_MINUTOS', '30', 'Intervalo de las horas del formulario y de las sugerencias (15, 30 o 60).'],
   ['CORREOS_NOTIFICACION', '', 'Correos de los encargados que reciben aviso de TODA reserva o cancelación (separados por coma). Cada sala puede tener además su propio encargado en la pestaña Salas.'],
-  ['ADMINS', '', 'Correos con acceso de administrador además de los usuarios con Rol=ADMIN (separados por coma).'],
-  ['NOMBRE_SERVICIO', 'Reserva de Salas – OGPP UNMSM', 'Nombre que aparece en la página y en los correos.']
+  ['NOMBRE_SERVICIO', 'Reserva de Salas – OGPL UNMSM', 'Nombre que aparece en la página y como remitente de los correos.'],
+  ['NOMBRE_OFICINA', 'Oficina General de Planificación – UNMSM', 'Texto del encabezado de los correos, junto al logo.'],
+  ['MINUTOS_SESION', '120', 'Minutos sin actividad tras los cuales se cierra la sesión (máximo 360).'],
+  ['PERMITIR_SOLICITUDES', 'SI', 'SI = en la pantalla de ingreso aparece "Solicitar una cuenta" (un administrador debe aprobarla). NO = solo los administradores crean usuarios.'],
+  ['DOMINIOS_PERMITIDOS', '', 'Dominios de correo aceptados en las solicitudes de cuenta, separados por coma (p. ej. unmsm.edu.pe). Vacío = cualquiera.']
 ];
 
 // Feriados nacionales restantes de 2026 (verificar y agregar días no laborables decretados).
@@ -57,71 +61,262 @@ const FERIADOS_DEFECTO = [
 const ESTADO = { CONFIRMADA: 'CONFIRMADA', CANCELADA: 'CANCELADA' };
 const DIAS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 const DIAS_CORTOS = ['', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+const ITERACIONES_HASH = 300;
+const MAX_INTENTOS = 5;          // intentos fallidos antes de bloquear
+const MINUTOS_BLOQUEO = 15;
+const COLOR_MARCA = '#7a1f2b';
 
 /* ============================================================================
  *  1. PUNTOS DE ENTRADA
  * ========================================================================== */
 
-/** Sirve la página. Solo cuentas del dominio que estén en la hoja Usuarios (o en Config › ADMINS). */
+/** Sirve la página. El acceso se controla con usuario y contraseña dentro de la página. */
 function doGet() {
-  let usuario = null;
-  try { usuario = usuarioActual_(); } catch (e) { /* se trata como sin acceso */ }
-  if (!usuario) {
-    const correo = correoActivo_();
-    return HtmlService.createHtmlOutput(
-      '<div style="font-family:Arial,sans-serif;padding:40px;max-width:560px;margin:auto">' +
-      '<h2 style="color:#7a1f2b">Acceso restringido</h2>' +
-      '<p>Tu cuenta no está autorizada para reservar salas de la OGPP.</p>' +
-      '<p>Solicita acceso a la oficina indicando este correo: <b>' + escaparHtml_(correo || '(no se pudo detectar tu cuenta; inicia sesión con tu correo @unmsm.edu.pe)') + '</b></p></div>')
-      .setTitle('Reserva de Salas OGPP')
-      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
-  }
-  return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('Reserva de Salas OGPP')
+  const cfg = leerConfig_();
+  const t = HtmlService.createTemplateFromFile('Index');
+  t.logo = 'data:image/png;base64,' + LOGO_PNG_BASE64;
+  t.servicio = cfg.NOMBRE_SERVICIO;
+  t.oficina = cfg.NOMBRE_OFICINA;
+  t.permitirSolicitudes = esSi_(cfg.PERMITIR_SOLICITUDES) ? 'SI' : 'NO';
+  return t.evaluate()
+    .setTitle(cfg.NOMBRE_SERVICIO)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
 /** Menú en la hoja de cálculo. */
 function onOpen() {
-  SpreadsheetApp.getUi().createMenu('Reservas OGPP')
+  SpreadsheetApp.getUi().createMenu('Reservas OGPL')
     .addItem('Configurar / reparar hojas', 'setup')
-    .addItem('Probar con mi cuenta', 'probar')
+    .addItem('Asignar contraseña a un usuario…', 'asignarContrasena')
     .addToUi();
 }
 
 /* ============================================================================
- *  2. API PARA LA PÁGINA  (google.script.run)
+ *  2. SESIONES Y CONTRASEÑAS
+ * ========================================================================== */
+
+/** Inicia sesión. Devuelve un token que la página envía en cada llamada. */
+function apiLogin(correo, contrasena) {
+  const c = normCorreo_(correo);
+  let res;
+  try {
+    const cache = CacheService.getScriptCache();
+    const claveFallos = 'fallos_' + c;
+    const fallos = entero_(cache.get(claveFallos));
+    if (!c || !contrasena) {
+      res = respuesta_(false, 'CREDENCIALES', 'Ingresa tu correo y tu contraseña.');
+    } else if (fallos >= MAX_INTENTOS) {
+      res = respuesta_(false, 'BLOQUEADO', 'Demasiados intentos fallidos. Espera ' + MINUTOS_BLOQUEO + ' minutos e intenta de nuevo.');
+    } else {
+      const u = buscarUsuario_(c);
+      if (!u || !u.Hash_Contrasena || hashContrasena_(String(contrasena), u.Sal) !== u.Hash_Contrasena) {
+        cache.put(claveFallos, String(fallos + 1), MINUTOS_BLOQUEO * 60);
+        res = respuesta_(false, 'CREDENCIALES', 'Correo o contraseña incorrectos.');
+      } else if (u.Estado === 'PENDIENTE') {
+        res = respuesta_(false, 'PENDIENTE', 'Tu solicitud de cuenta aún no ha sido aprobada por un administrador.');
+      } else if (u.Estado !== 'SI') {
+        res = respuesta_(false, 'DESACTIVADO', 'Tu cuenta está desactivada. Comunícate con la administración.');
+      } else {
+        cache.remove(claveFallos);
+        actualizarFila_(HOJAS.USUARIOS, u._fila, { Ultimo_Acceso: ahoraTexto_() });
+        res = respuesta_(true, 'EXITO', 'Bienvenido(a), ' + u.Nombre + '.', {
+          token: crearSesion_(u), debe_cambiar: u.DebeCambiar, usuario: perfil_(u)
+        });
+      }
+    }
+  } catch (err) {
+    res = errorInterno_(err);
+  }
+  try { registrarLog_('login', c, res.codigo, res.ok ? '' : res.mensaje); } catch (ignorado) { /* nada */ }
+  return res;
+}
+
+/** Cierra la sesión. */
+function apiLogout(token) {
+  try { CacheService.getScriptCache().remove('ses_' + String(token || '')); } catch (e) { /* nada */ }
+  return respuesta_(true, 'EXITO', 'Sesión cerrada.');
+}
+
+/** Cambia la contraseña propia. Devuelve un token nuevo (las demás sesiones abiertas se cierran). */
+function apiCambiarContrasena(token, actual, nueva) {
+  return api_('cambiar_contrasena', token, usuario => {
+    const u = buscarUsuario_(usuario.Correo);
+    if (hashContrasena_(String(actual || ''), u.Sal) !== u.Hash_Contrasena) {
+      return respuesta_(false, 'CREDENCIALES', 'La contraseña actual no es correcta.');
+    }
+    const error = validarContrasena_(nueva);
+    if (error) return datosInvalidos_([error]);
+    if (String(nueva) === String(actual)) return datosInvalidos_(['La nueva contraseña debe ser distinta de la actual.']);
+    const sal = nuevaSal_();
+    actualizarFila_(HOJAS.USUARIOS, u._fila, { Hash_Contrasena: hashContrasena_(String(nueva), sal), Sal: sal, Debe_Cambiar: 'NO' });
+    CacheService.getScriptCache().remove('ses_' + token);
+    u.Sal = sal;
+    return respuesta_(true, 'EXITO', 'Tu contraseña fue actualizada.', { token: crearSesion_(u) });
+  }, true);
+}
+
+/**
+ * Solicitud pública de cuenta (pantalla de ingreso). Queda PENDIENTE hasta que un ADMIN la apruebe.
+ * datos = { correo, nombre, oficina, contrasena }
+ */
+function apiSolicitarCuenta(datos) {
+  datos = datos || {};
+  const c = normCorreo_(datos.correo);
+  let res;
+  try {
+    const cfg = leerConfig_();
+    const cache = CacheService.getScriptCache();
+    const enHora = entero_(cache.get('solicitudes_hora'));
+    const errores = [];
+    if (!esSi_(cfg.PERMITIR_SOLICITUDES)) {
+      res = respuesta_(false, 'NO_PERMITIDO', 'Las solicitudes de cuenta están deshabilitadas. Pide a un administrador que te cree una cuenta.');
+    } else if (enHora >= 20) {
+      res = respuesta_(false, 'ERROR', 'Se recibieron demasiadas solicitudes. Intenta de nuevo en una hora.');
+    } else {
+      validarDatosUsuario_(datos, errores);
+      const dominios = String(cfg.DOMINIOS_PERMITIDOS || '').toLowerCase().split(',').map(x => x.trim().replace(/^@/, '')).filter(Boolean);
+      if (c && dominios.length && dominios.indexOf(c.split('@')[1]) === -1) {
+        errores.push('Solo se aceptan correos de: ' + dominios.map(d => '@' + d).join(', ') + '.');
+      }
+      const errorPw = validarContrasena_(datos.contrasena);
+      if (errorPw) errores.push(errorPw);
+      if (errores.length) {
+        res = datosInvalidos_(errores);
+      } else {
+        const lock = LockService.getScriptLock();
+        if (!lock.tryLock(20000)) return respuesta_(false, 'ERROR', 'El sistema está ocupado. Intenta de nuevo.');
+        try {
+          const existente = buscarUsuario_(c);
+          if (existente) {
+            res = respuesta_(false, 'YA_EXISTE', existente.Estado === 'PENDIENTE'
+              ? 'Ya existe una solicitud pendiente para este correo.'
+              : 'Ya existe una cuenta con este correo. Si olvidaste tu contraseña, pide a un administrador que la restablezca.');
+          } else {
+            const sal = nuevaSal_();
+            agregarFila_(HOJAS.USUARIOS, {
+              Correo: c, Nombre: limpiarTexto_(datos.nombre), Oficina: limpiarTexto_(datos.oficina), Rol: 'USUARIO',
+              Activo: 'PENDIENTE', Hash_Contrasena: hashContrasena_(String(datos.contrasena), sal), Sal: sal,
+              Debe_Cambiar: 'NO', Fecha_Creacion: ahoraTexto_(), Ultimo_Acceso: ''
+            });
+            SpreadsheetApp.flush();
+            cache.put('solicitudes_hora', String(enHora + 1), 3600);
+            res = respuesta_(true, 'EXITO', 'Solicitud enviada. Podrás ingresar cuando un administrador la apruebe; te avisaremos por correo.');
+          }
+        } finally {
+          lock.releaseLock();
+        }
+        if (res.ok) avisarSolicitudAdmins_({ Correo: c, Nombre: limpiarTexto_(datos.nombre), Oficina: limpiarTexto_(datos.oficina) });
+      }
+    }
+  } catch (err) {
+    res = errorInterno_(err);
+  }
+  try { registrarLog_('solicitar_cuenta', c, res.codigo, res.ok ? '' : res.mensaje); } catch (ignorado) { /* nada */ }
+  return res;
+}
+
+function crearSesion_(u) {
+  const token = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+  CacheService.getScriptCache().put('ses_' + token, JSON.stringify({ c: u.Correo, s: u.Sal }), segundosSesion_());
+  return token;
+}
+
+function segundosSesion_() {
+  const m = entero_(leerConfig_().MINUTOS_SESION) || 120;
+  return Math.min(21600, Math.max(300, m * 60));
+}
+
+/** Usuario dueño de un token válido (o null). Renueva la vigencia en cada uso. */
+function usuarioDeToken_(token) {
+  if (typeof token !== 'string' || token.length < 32) return null;
+  const cache = CacheService.getScriptCache();
+  const clave = 'ses_' + token;
+  const valor = cache.get(clave);
+  if (!valor) return null;
+  let d;
+  try { d = JSON.parse(valor); } catch (e) { return null; }
+  const u = buscarUsuario_(d.c);
+  // La sesión muere si la cuenta se desactiva o si cambió la contraseña (cambia la sal)
+  if (!u || u.Estado !== 'SI' || u.Sal !== d.s) { cache.remove(clave); return null; }
+  cache.put(clave, valor, segundosSesion_());
+  return u;
+}
+
+function hashContrasena_(contrasena, sal) {
+  let h = String(sal) + '|' + contrasena;
+  for (let i = 0; i < ITERACIONES_HASH; i++) {
+    h = bytesAHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, h + '|' + sal, Utilities.Charset.UTF_8));
+  }
+  return h;
+}
+
+function bytesAHex_(bytes) {
+  return bytes.map(b => ('0' + ((b + 256) % 256).toString(16)).slice(-2)).join('');
+}
+
+function nuevaSal_() {
+  return Utilities.getUuid().replace(/-/g, '');
+}
+
+/** Devuelve el motivo si la contraseña no cumple la política, o ''. */
+function validarContrasena_(pw) {
+  const s = String(pw || '');
+  if (s.length < 8) return 'La contraseña debe tener al menos 8 caracteres.';
+  if (!/[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(s) || !/\d/.test(s)) return 'La contraseña debe combinar letras y números.';
+  if (s.length > 100) return 'La contraseña es demasiado larga.';
+  return '';
+}
+
+/** Contraseña temporal legible (10 caracteres, letras y números, sin caracteres ambiguos). */
+function contrasenaTemporal_() {
+  const letras = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ', nums = '23456789';
+  const fuente = (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+  let pw = '';
+  for (let i = 0; i < 10; i++) {
+    const n = parseInt(fuente.substr(i * 2, 2), 16);
+    pw += (i === 3 || i === 7) ? nums.charAt(n % nums.length) : letras.charAt(n % letras.length);
+  }
+  return pw;
+}
+
+/* ============================================================================
+ *  3. API PARA LA PÁGINA (requieren sesión)
  *  Todas devuelven { ok, codigo, mensaje, data } y nunca lanzan excepciones.
  * ========================================================================== */
 
-/** Ejecuta fn(usuario) con la cuenta de quien llama. */
-function api_(nombre, fn) {
+/** Ejecuta fn(usuario) si el token es válido. permitirSiDebeCambiar: solo para cambiar contraseña. */
+function api_(nombre, token, fn, permitirSiDebeCambiar) {
   let usuario = null;
   let res;
   try {
-    usuario = usuarioActual_();
+    usuario = usuarioDeToken_(token);
     if (!usuario) {
-      return respuesta_(false, 'NO_AUTORIZADO',
-        'Tu cuenta no está autorizada para reservar salas de la OGPP. Comunícate con la oficina para solicitar acceso.');
+      res = respuesta_(false, 'SESION_EXPIRADA', 'Tu sesión expiró. Ingresa nuevamente.');
+    } else if (usuario.DebeCambiar && !permitirSiDebeCambiar) {
+      res = respuesta_(false, 'DEBE_CAMBIAR', 'Debes cambiar tu contraseña antes de continuar.');
+    } else {
+      res = fn(usuario);
     }
-    res = fn(usuario);
   } catch (err) {
-    res = respuesta_(false, 'ERROR', 'Ocurrió un error interno. Intenta nuevamente en unos minutos.',
-      { detalle: String((err && err.message) || err) });
+    res = errorInterno_(err);
   }
   try { registrarLog_(nombre, usuario && usuario.Correo, res.codigo, res.ok ? '' : res.mensaje); } catch (ignorado) { /* el log nunca rompe la respuesta */ }
   return res;
 }
 
+function soloAdmin_(usuario) {
+  return usuario.Rol === 'ADMIN' ? null : respuesta_(false, 'NO_PERMITIDO', 'Esta sección es solo para administradores.');
+}
+
 /** Datos para armar la página: usuario, salas, reglas y feriados próximos. */
-function apiInicio() {
-  return api_('inicio', usuario => {
+function apiInicio(token) {
+  return api_('inicio', token, usuario => {
     const cfg = leerConfig_();
     const ahora = ahora_();
     const limite = sumarDias_(ahora.fecha, cfg.ANTICIPACION_MAX_DIAS);
     const feriados = leerFeriados_();
     return respuesta_(true, 'EXITO', 'Listo.', {
-      usuario: { nombre: usuario.Nombre, oficina: usuario.Oficina, correo: usuario.Correo, rol: usuario.Rol },
+      usuario: perfil_(usuario),
       servicio: cfg.NOMBRE_SERVICIO,
       salas: leerSalas_().map(s => ({ sala: s.Sala, capacidad: entero_(s.Capacidad), ubicacion: s.Ubicacion, equipamiento: s.Equipamiento })),
       cfg: {
@@ -131,14 +326,15 @@ function apiInicio() {
       },
       hoy: ahora.fecha, ahora_min: ahora.min, limite: limite,
       feriados: Object.keys(feriados).filter(f => f >= ahora.fecha && f <= limite).sort()
-        .map(f => ({ fecha: f, descripcion: feriados[f] }))
+        .map(f => ({ fecha: f, descripcion: feriados[f] })),
+      pendientes: usuario.Rol === 'ADMIN' ? leerUsuarios_().filter(u => u.Estado === 'PENDIENTE').length : 0
     });
   });
 }
 
 /** Verifica una solicitud SIN registrarla (la página la llama mientras el usuario llena el formulario). */
-function apiVerificar(form) {
-  return api_('verificar', () => {
+function apiVerificar(token, form) {
+  return api_('verificar', token, () => {
     form = form || {};
     const cfg = leerConfig_();
     const salas = leerSalas_();
@@ -149,8 +345,8 @@ function apiVerificar(form) {
 }
 
 /** Registra la reserva (revalida dentro de un bloqueo para evitar dobles reservas). */
-function apiReservar(form) {
-  return api_('reservar', usuario => {
+function apiReservar(token, form) {
+  return api_('reservar', token, usuario => {
     form = form || {};
     const lock = LockService.getScriptLock();
     if (!lock.tryLock(20000)) {
@@ -194,8 +390,8 @@ function apiReservar(form) {
 }
 
 /** Próximas reservas y últimas reservas pasadas o canceladas del usuario. */
-function apiMisReservas() {
-  return api_('mis_reservas', usuario => {
+function apiMisReservas(token) {
+  return api_('mis_reservas', token, usuario => {
     const ahora = ahora_();
     const mias = leerTabla_(HOJAS.RESERVAS).filas.filter(r => r.Correo_Contacto === usuario.Correo);
     const esProxima = r => r.Estado === ESTADO.CONFIRMADA &&
@@ -211,13 +407,13 @@ function apiMisReservas() {
 }
 
 /** Cancela una reserva propia (o cualquiera si el usuario es ADMIN). */
-function apiCancelar(idReserva, motivo) {
-  return api_('cancelar', usuario => cancelarReserva_(idReserva, usuario, motivo));
+function apiCancelar(token, idReserva, motivo) {
+  return api_('cancelar', token, usuario => cancelarReserva_(idReserva, usuario, motivo));
 }
 
-/** Ocupación de la semana (lunes a viernes, según días hábiles) para el calendario. */
-function apiSemana(fechaReferencia) {
-  return api_('semana', usuario => {
+/** Ocupación de la semana (según días hábiles) para el calendario. */
+function apiSemana(token, fechaReferencia) {
+  return api_('semana', token, usuario => {
     const cfg = leerConfig_();
     const ref = normFecha_(fechaReferencia) || ahora_().fecha;
     const lunes = sumarDias_(ref, 1 - diaSemana_(ref));
@@ -242,12 +438,12 @@ function apiSemana(fechaReferencia) {
 }
 
 /**
- * Listado para administración. Filtros: { desde, hasta, estado: 'TODAS'|'CONFIRMADA'|'CANCELADA', sala }.
- * Solo ADMIN. Devuelve las reservas del rango y estadísticas.
+ * Listado de reservas para administración. Filtros: { desde, hasta, estado: 'TODAS'|'CONFIRMADA'|'CANCELADA', sala }.
  */
-function apiAdminLista(filtros) {
-  return api_('admin_lista', usuario => {
-    if (usuario.Rol !== 'ADMIN') return respuesta_(false, 'NO_PERMITIDO', 'Esta sección es solo para administradores.');
+function apiAdminLista(token, filtros) {
+  return api_('admin_lista', token, usuario => {
+    const denegado = soloAdmin_(usuario);
+    if (denegado) return denegado;
     filtros = filtros || {};
     const cfg = leerConfig_();
     const hoy = ahora_().fecha;
@@ -263,7 +459,6 @@ function apiAdminLista(filtros) {
       .filter(r => !filtros.sala || r.Sala === filtros.sala)
       .sort((a, b) => clave(a).localeCompare(clave(b)));
 
-    // Estadísticas sobre las reservas confirmadas del rango (y sala, si se filtró)
     const salas = leerSalas_().filter(s => !filtros.sala || s.Sala === filtros.sala);
     const confirmadas = todas.filter(r => r.Estado === ESTADO.CONFIRMADA && (!filtros.sala || r.Sala === filtros.sala));
     const minutos = confirmadas.reduce((s, r) => s + aMin_(r.Hora_Fin) - aMin_(r.Hora_Inicio), 0);
@@ -292,8 +487,131 @@ function apiAdminLista(filtros) {
   });
 }
 
+/* ---------------- Administración de usuarios ---------------- */
+
+/** Lista de usuarios (pendientes primero). */
+function apiAdminUsuarios(token) {
+  return api_('admin_usuarios', token, usuario => {
+    const denegado = soloAdmin_(usuario);
+    if (denegado) return denegado;
+    const orden = { PENDIENTE: 0, SI: 1, NO: 2 };
+    const lista = leerUsuarios_()
+      .sort((a, b) => (orden[a.Estado] - orden[b.Estado]) || String(a.Nombre).localeCompare(String(b.Nombre)))
+      .map(u => ({
+        correo: u.Correo, nombre: u.Nombre, oficina: u.Oficina, rol: u.Rol, estado: u.Estado,
+        debe_cambiar: u.DebeCambiar, tiene_contrasena: !!u.Hash_Contrasena,
+        fecha_creacion: u.Fecha_Creacion, ultimo_acceso: u.Ultimo_Acceso, soy_yo: u.Correo === usuario.Correo
+      }));
+    return respuesta_(true, 'EXITO', '', { usuarios: lista });
+  });
+}
+
+/**
+ * Crea un usuario activo con contraseña temporal (deberá cambiarla al ingresar).
+ * d = { correo, nombre, oficina, rol, contrasena, enviar_correo }
+ */
+function apiAdminCrearUsuario(token, d) {
+  return api_('admin_crear_usuario', token, usuario => {
+    const denegado = soloAdmin_(usuario);
+    if (denegado) return denegado;
+    d = d || {};
+    const errores = [];
+    validarDatosUsuario_(d, errores);
+    const errorPw = validarContrasena_(d.contrasena);
+    if (errorPw) errores.push(errorPw);
+    const rol = String(d.rol || 'USUARIO').toUpperCase() === 'ADMIN' ? 'ADMIN' : 'USUARIO';
+    if (errores.length) return datosInvalidos_(errores);
+    const c = normCorreo_(d.correo);
+
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(20000)) return respuesta_(false, 'ERROR', 'El sistema está ocupado. Intenta de nuevo.');
+    try {
+      if (buscarUsuario_(c)) return respuesta_(false, 'YA_EXISTE', 'Ya existe un usuario con el correo ' + c + '.');
+      const sal = nuevaSal_();
+      agregarFila_(HOJAS.USUARIOS, {
+        Correo: c, Nombre: limpiarTexto_(d.nombre), Oficina: limpiarTexto_(d.oficina), Rol: rol, Activo: 'SI',
+        Hash_Contrasena: hashContrasena_(String(d.contrasena), sal), Sal: sal, Debe_Cambiar: 'SI',
+        Fecha_Creacion: ahoraTexto_(), Ultimo_Acceso: ''
+      });
+      SpreadsheetApp.flush();
+    } finally {
+      lock.releaseLock();
+    }
+    let enviado = false;
+    if (d.enviar_correo) enviado = enviarCredenciales_({ Correo: c, Nombre: limpiarTexto_(d.nombre) }, String(d.contrasena), false);
+    return respuesta_(true, 'EXITO', 'Usuario ' + c + ' creado.' + (d.enviar_correo ? (enviado ? ' Se le enviaron sus datos de acceso por correo.' : ' No se pudo enviar el correo; comunícale la contraseña temporal.') : ''),
+      { correo_enviado: enviado });
+  });
+}
+
+/**
+ * Modifica nombre, oficina, rol o estado (SI / NO / PENDIENTE) de un usuario.
+ * Aprobar una solicitud = estado SI (se avisa al usuario por correo).
+ */
+function apiAdminActualizarUsuario(token, correo, cambios) {
+  return api_('admin_actualizar_usuario', token, usuario => {
+    const denegado = soloAdmin_(usuario);
+    if (denegado) return denegado;
+    cambios = cambios || {};
+    const u = buscarUsuario_(correo);
+    if (!u) return respuesta_(false, 'NO_ENCONTRADA', 'No existe el usuario ' + correo + '.');
+    const campos = {};
+    const errores = [];
+    if (cambios.nombre !== undefined) {
+      if (limpiarTexto_(cambios.nombre).length < 3) errores.push('Escribe el nombre completo.');
+      else campos.Nombre = limpiarTexto_(cambios.nombre);
+    }
+    if (cambios.oficina !== undefined) {
+      if (limpiarTexto_(cambios.oficina).length < 2) errores.push('Escribe la oficina.');
+      else campos.Oficina = limpiarTexto_(cambios.oficina);
+    }
+    if (cambios.rol !== undefined) campos.Rol = String(cambios.rol).toUpperCase() === 'ADMIN' ? 'ADMIN' : 'USUARIO';
+    if (cambios.estado !== undefined) {
+      const e = String(cambios.estado).toUpperCase();
+      campos.Activo = e === 'SI' || e === 'PENDIENTE' ? e : 'NO';
+    }
+    if (u.Correo === usuario.Correo && ((campos.Rol && campos.Rol !== 'ADMIN') || (campos.Activo && campos.Activo !== 'SI'))) {
+      errores.push('No puedes quitarte el rol de administrador ni desactivar tu propia cuenta.');
+    }
+    if (errores.length) return datosInvalidos_(errores);
+    actualizarFila_(HOJAS.USUARIOS, u._fila, campos);
+    SpreadsheetApp.flush();
+    const aprobado = u.Estado === 'PENDIENTE' && campos.Activo === 'SI';
+    if (aprobado) enviarAprobacion_(Object.assign({}, u, { Nombre: campos.Nombre || u.Nombre }));
+    return respuesta_(true, 'EXITO', aprobado ? 'Cuenta de ' + u.Correo + ' aprobada; se le avisó por correo.' : 'Cambios guardados.');
+  });
+}
+
+/** Asigna una contraseña temporal a otro usuario (deberá cambiarla al ingresar). */
+function apiAdminRestablecerContrasena(token, correo, nueva, enviarCorreo) {
+  return api_('admin_restablecer', token, usuario => {
+    const denegado = soloAdmin_(usuario);
+    if (denegado) return denegado;
+    const u = buscarUsuario_(correo);
+    if (!u) return respuesta_(false, 'NO_ENCONTRADA', 'No existe el usuario ' + correo + '.');
+    if (u.Correo === usuario.Correo) return datosInvalidos_(['Para tu propia cuenta usa "Cambiar contraseña".']);
+    const error = validarContrasena_(nueva);
+    if (error) return datosInvalidos_([error]);
+    const sal = nuevaSal_();
+    actualizarFila_(HOJAS.USUARIOS, u._fila, { Hash_Contrasena: hashContrasena_(String(nueva), sal), Sal: sal, Debe_Cambiar: 'SI' });
+    SpreadsheetApp.flush();
+    CacheService.getScriptCache().remove('fallos_' + u.Correo);
+    let enviado = false;
+    if (enviarCorreo) enviado = enviarCredenciales_(u, String(nueva), true);
+    return respuesta_(true, 'EXITO', 'Contraseña restablecida para ' + u.Correo + '.' + (enviarCorreo ? (enviado ? ' Se le envió por correo.' : ' No se pudo enviar el correo; comunícasela.') : ''),
+      { correo_enviado: enviado });
+  });
+}
+
+function validarDatosUsuario_(d, errores) {
+  const c = normCorreo_(d.correo);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(c)) errores.push('Escribe un correo válido.');
+  if (limpiarTexto_(d.nombre).length < 3) errores.push('Escribe el nombre completo.');
+  if (limpiarTexto_(d.oficina).length < 2) errores.push('Escribe la unidad u oficina.');
+}
+
 /* ============================================================================
- *  3. LÓGICA DE NEGOCIO
+ *  4. LÓGICA DE RESERVAS
  * ========================================================================== */
 
 /**
@@ -368,7 +686,6 @@ function evaluarSolicitud_(v, req, cfg, salas, reservas, esRegistro) {
   const asistentes = entero_(req.asistentes);
   const horario = fechaLarga_(v.fecha) + ' de ' + v.hi + ' a ' + v.hf;
 
-  // Caso 1: el usuario eligió sala
   if (v.sala) {
     const objetivo = estado.filter(e => e.sala === v.sala.Sala)[0];
     if (objetivo.libre) {
@@ -390,7 +707,6 @@ function evaluarSolicitud_(v, req, cfg, salas, reservas, esRegistro) {
       prefijo + ' Ninguna otra sala está libre en ese horario.' + textoSugerencias_(base.sugerencias), base);
   }
 
-  // Caso 2: "cualquier sala libre"
   if (libres.length) {
     base.sala = libres[0];
     const salaObj = salas.filter(s => s.Sala === libres[0])[0];
@@ -413,10 +729,7 @@ function hayTraslape_(ini1, fin1, ini2, fin2) {
   return ini1 < fin2 && fin1 > ini2;
 }
 
-/**
- * Horarios alternativos con la misma duración: primero el mismo día (más cercanos a la hora pedida),
- * y si no hay, los siguientes días hábiles. Máximo 4.
- */
+/** Horarios alternativos de la misma duración: mismo día primero, luego días hábiles siguientes. Máximo 4. */
 function sugerencias_(v, cfg, salas, reservasDia) {
   const dur = v.fin - v.ini;
   const paso = cfg.PASO_MINUTOS;
@@ -440,7 +753,7 @@ function sugerencias_(v, cfg, salas, reservasDia) {
       }
     });
     candidatos.sort((a, b) => a._d - b._d || a.sala.localeCompare(b.sala));
-    const vistos = {}; // evita repetir la misma hora en salas distintas
+    const vistos = {};
     candidatos.forEach(c => {
       if (resultado.length < 4 && !vistos[c.hora_inicio]) {
         vistos[c.hora_inicio] = true;
@@ -466,7 +779,7 @@ function advertenciaCapacidad_(sala, asistentes) {
   return '';
 }
 
-/** Cancela una reserva. actor = { Nombre, Correo, Rol }. */
+/** Cancela una reserva. actor = usuario { Nombre, Correo, Rol }. */
 function cancelarReserva_(idReserva, actor, motivo) {
   const id = String(idReserva || '').trim().toUpperCase();
   if (!id) return datosInvalidos_(['Indica el código de la reserva.']);
@@ -481,17 +794,16 @@ function cancelarReserva_(idReserva, actor, motivo) {
     if (r.Estado === ESTADO.CANCELADA) return datosInvalidos_(['La reserva ' + id + ' ya estaba cancelada.']);
     const esDueno = !!actor.Correo && r.Correo_Contacto === actor.Correo;
     if (!esDueno && actor.Rol !== 'ADMIN') {
-      return respuesta_(false, 'NO_PERMITIDO', 'Solo quien hizo la reserva o un administrador de la OGPP puede cancelarla.');
+      return respuesta_(false, 'NO_PERMITIDO', 'Solo quien hizo la reserva o un administrador puede cancelarla.');
     }
     if (!puedeCancelar_(r)) {
       return datosInvalidos_(['La reserva ' + id + ' ya empezó o terminó; no se puede cancelar.']);
     }
-    const col = nombre => t.enc.indexOf(nombre) + 1;
     const motivoLimpio = limpiarTexto_(motivo);
-    t.hoja.getRange(r._fila, col('Estado')).setValue(ESTADO.CANCELADA);
-    t.hoja.getRange(r._fila, col('Cancelado_Por')).setValue(actor.Nombre || actor.Correo || '');
-    t.hoja.getRange(r._fila, col('Fecha_Cancelacion')).setValue(ahoraTexto_());
-    t.hoja.getRange(r._fila, col('Motivo_Cancelacion')).setValue(motivoLimpio);
+    actualizarFila_(HOJAS.RESERVAS, r._fila, {
+      Estado: ESTADO.CANCELADA, Cancelado_Por: actor.Nombre || actor.Correo || '',
+      Fecha_Cancelacion: ahoraTexto_(), Motivo_Cancelacion: motivoLimpio
+    });
     SpreadsheetApp.flush();
     r.Estado = ESTADO.CANCELADA;
     r.Cancelado_Por = actor.Nombre || '';
@@ -520,30 +832,6 @@ function generarId_() {
     if (id.indexOf(prefijo) === 0) max = Math.max(max, parseInt(id.slice(prefijo.length), 10) || 0);
   });
   return prefijo + ('00' + (max + 1)).slice(-3);
-}
-
-/* ============================================================================
- *  4. IDENTIDAD
- * ========================================================================== */
-
-function correoActivo_() {
-  try { return String(Session.getActiveUser().getEmail() || '').trim().toLowerCase(); } catch (e) { return ''; }
-}
-
-/**
- * Usuario que está usando la página: lista blanca Usuarios (activo) o, si es administrador
- * por Config › ADMINS, un perfil de administración. null si no tiene acceso.
- */
-function usuarioActual_() {
-  const correo = correoActivo_();
-  if (!correo) return null;
-  const u = leerTabla_(HOJAS.USUARIOS).filas.filter(x => esSi_(x.Activo) && x.Correo === correo)[0];
-  if (u) {
-    return { Correo: correo, Nombre: u.Nombre || correo, Oficina: u.Oficina || '', Rol: String(u.Rol || 'USUARIO').toUpperCase() === 'ADMIN' ? 'ADMIN' : 'USUARIO' };
-  }
-  const extra = String(leerConfig_().ADMINS || '').toLowerCase().split(',').map(x => x.trim()).filter(Boolean);
-  if (extra.indexOf(correo) !== -1) return { Correo: correo, Nombre: correo, Oficina: 'OGPP (administración)', Rol: 'ADMIN' };
-  return null;
 }
 
 /* ============================================================================
@@ -589,7 +877,7 @@ function normalizarCelda_(columna, v) {
   }
   if (esHora) return normHora_(v) || String(v).trim();
   if (columna === 'Fecha_Reserva') return normFecha_(v) || String(v).trim();
-  if (columna === 'Correo' || columna === 'Correo_Contacto') return String(v).trim().toLowerCase();
+  if (columna === 'Correo' || columna === 'Correo_Contacto') return normCorreo_(v);
   return typeof v === 'string' ? v.trim() : v;
 }
 
@@ -599,12 +887,47 @@ function agregarFila_(nombre, obj) {
   h.appendRow(enc.map(k => (obj[k] === undefined ? '' : obj[k])));
 }
 
+/** Escribe los campos indicados en una fila, ubicando cada columna por su encabezado. */
+function actualizarFila_(nombre, fila, campos) {
+  const h = hoja_(nombre);
+  const enc = h.getRange(1, 1, 1, h.getLastColumn()).getValues()[0].map(x => String(x).trim());
+  Object.keys(campos).forEach(k => {
+    const col = enc.indexOf(k) + 1;
+    if (col < 1) throw new Error('Falta la columna "' + k + '" en ' + nombre + '. Ejecuta setup().');
+    h.getRange(fila, col).setValue(campos[k]);
+  });
+}
+
 function reservasDelDia_(fecha) {
   return leerTabla_(HOJAS.RESERVAS).filas.filter(r => r.Estado === ESTADO.CONFIRMADA && r.Fecha_Reserva === fecha);
 }
 
 function leerSalas_() {
   return leerTabla_(HOJAS.SALAS).filas.filter(s => s.Sala && esSi_(s.Activa));
+}
+
+/** Usuarios con campos normalizados: Estado (SI/NO/PENDIENTE), Rol, DebeCambiar. */
+function leerUsuarios_() {
+  return leerTabla_(HOJAS.USUARIOS).filas.filter(u => u.Correo).map(u => {
+    const a = String(u.Activo || '').trim().toUpperCase();
+    u.Estado = esSi_(u.Activo) ? 'SI' : (a.indexOf('PEND') === 0 ? 'PENDIENTE' : 'NO');
+    u.Rol = String(u.Rol || '').toUpperCase() === 'ADMIN' ? 'ADMIN' : 'USUARIO';
+    u.DebeCambiar = esSi_(u.Debe_Cambiar);
+    u.Nombre = u.Nombre || u.Correo;
+    u.Sal = String(u.Sal || '');
+    u.Hash_Contrasena = String(u.Hash_Contrasena || '');
+    return u;
+  });
+}
+
+function buscarUsuario_(correo) {
+  const c = normCorreo_(correo);
+  if (!c) return null;
+  return leerUsuarios_().filter(u => u.Correo === c)[0] || null;
+}
+
+function perfil_(u) {
+  return { nombre: u.Nombre, oficina: u.Oficina, correo: u.Correo, rol: u.Rol };
 }
 
 function leerFeriados_() {
@@ -639,8 +962,53 @@ function registrarLog_(accion, correo, codigo, detalle) {
 }
 
 /* ============================================================================
- *  6. CORREOS (usuario + encargados, con invitación .ics)
+ *  6. CORREOS (encabezado institucional con logo)
  * ========================================================================== */
+
+/** Imagen del logo para incrustar en los correos (cid:logoUnmsm). */
+function logoBlob_() {
+  return Utilities.newBlob(Utilities.base64Decode(LOGO_PNG_BASE64), 'image/png', 'logo-unmsm.png');
+}
+
+/**
+ * HTML completo de un correo: franja de color con el logo y el nombre de la oficina,
+ * el estado debajo (p. ej. "Reserva confirmada") y el cuerpo.
+ */
+function htmlCorreo_(cfg, color, estado, cuerpoHtml) {
+  return '<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:auto;border:1px solid #e5e5e5;border-radius:8px;overflow:hidden">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:' + color + ';border-collapse:collapse"><tr>' +
+    '<td width="72" style="padding:14px 0 14px 20px;vertical-align:middle;width:52px">' +
+    '<img src="cid:logoUnmsm" width="52" height="52" alt="UNMSM" style="display:block;border:0;width:52px;height:52px"></td>' +
+    '<td style="padding:14px 20px 14px 14px;vertical-align:middle;color:#ffffff;font-family:Arial,Helvetica,sans-serif">' +
+    '<div style="font-size:16px;font-weight:bold;line-height:1.3;color:#ffffff">' + escaparHtml_(cfg.NOMBRE_OFICINA) + '</div>' +
+    '<div style="font-size:13px;line-height:1.4;margin-top:3px;color:#ffffff;opacity:0.92">' + escaparHtml_(estado) + '</div>' +
+    '</td></tr></table>' +
+    '<div style="padding:16px 24px">' + cuerpoHtml + '</div>' +
+    '<div style="background:#f6f6f6;padding:10px 24px;font-size:12px;color:#777">' + escaparHtml_(cfg.NOMBRE_SERVICIO) + ' · Mensaje automático</div></div>';
+}
+
+function tablaCorreo_(filas) {
+  return '<table style="border-collapse:collapse;width:100%;font-size:14px">' +
+    filas.map(f => '<tr><td style="padding:6px 0;color:#666;width:120px;vertical-align:top">' + f[0] + '</td><td style="padding:6px 0"><b>' +
+      escaparHtml_(String(f[1] || '')) + '</b></td></tr>').join('') + '</table>';
+}
+
+function botonCorreo_(texto, url) {
+  if (!url) return '';
+  return '<p style="margin:18px 0 6px"><a href="' + escaparHtml_(url) + '" style="background:' + COLOR_MARCA +
+    ';color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:bold;display:inline-block">' + escaparHtml_(texto) + '</a></p>';
+}
+
+function urlAplicacion_() {
+  try { return ScriptApp.getService().getUrl() || ''; } catch (e) { return ''; }
+}
+
+/** Envía un correo con el logo incrustado. */
+function enviarCorreoHtml_(para, asunto, html, adjuntos, cfg) {
+  const opciones = { to: para, subject: asunto, htmlBody: html, name: cfg.NOMBRE_SERVICIO, inlineImages: { logoUnmsm: logoBlob_() } };
+  if (adjuntos && adjuntos.length) opciones.attachments = adjuntos;
+  MailApp.sendEmail(opciones);
+}
 
 /**
  * Tras una reserva o cancelación avisa (1) a quien reservó y (2) a los encargados:
@@ -657,18 +1025,20 @@ function enviarNotificaciones_(tipo, r) {
 
   try {
     if (r.Correo_Contacto) {
-      enviarCorreo_(armarCorreo_(tipo, r, sala, cfg, false), r.Correo_Contacto, '');
+      const c = armarCorreoReserva_(tipo, r, sala, cfg, false);
+      enviarCorreoHtml_(r.Correo_Contacto, c.asunto, c.html, [c.ics], cfg);
       res.usuario = true;
     }
-  } catch (e) { logCorreoFallido_(tipo, r, 'usuario', e); }
+  } catch (e) { logCorreoFallido_(tipo, r && r.Correo_Contacto, 'usuario', e); }
 
   try {
-    const encargados = encargados_(sala, cfg).filter(c => c !== r.Correo_Contacto);
+    const encargados = encargados_(sala, cfg).filter(x => x !== r.Correo_Contacto);
     if (encargados.length) {
-      enviarCorreo_(armarCorreo_(tipo, r, sala, cfg, true), encargados.join(','), '');
+      const c = armarCorreoReserva_(tipo, r, sala, cfg, true);
+      enviarCorreoHtml_(encargados.join(','), c.asunto, c.html, [c.ics], cfg);
       res.encargados = true;
     }
-  } catch (e) { logCorreoFallido_(tipo, r, 'encargados', e); }
+  } catch (e) { logCorreoFallido_(tipo, r && r.Correo_Contacto, 'encargados', e); }
   return res;
 }
 
@@ -680,16 +1050,15 @@ function encargados_(sala, cfg) {
   return lista;
 }
 
-function logCorreoFallido_(tipo, r, para, e) {
-  try { registrarLog_('correo_' + tipo, r && r.Correo_Contacto, 'ERROR', para + ': ' + String(e)); } catch (x) { /* nada */ }
+function logCorreoFallido_(tipo, correo, para, e) {
+  try { registrarLog_('correo_' + tipo, correo, 'ERROR', para + ': ' + String(e)); } catch (x) { /* nada */ }
 }
 
-function armarCorreo_(tipo, r, sala, cfg, paraEncargados) {
-  const titulos = {
-    CONFIRMACION: { color: '#1a7f37', asunto: paraEncargados ? 'Nueva reserva' : 'Reserva confirmada', titulo: paraEncargados ? 'Nueva reserva registrada' : 'Reserva confirmada' },
-    CANCELACION: { color: '#b42318', asunto: 'Reserva cancelada', titulo: 'Reserva cancelada' }
-  };
-  const t = titulos[tipo];
+function armarCorreoReserva_(tipo, r, sala, cfg, paraEncargados) {
+  const t = {
+    CONFIRMACION: { color: '#1a7f37', asunto: paraEncargados ? 'Nueva reserva' : 'Reserva confirmada', estado: paraEncargados ? 'Nueva reserva registrada' : 'Reserva confirmada' },
+    CANCELACION: { color: '#b42318', asunto: 'Reserva cancelada', estado: 'Reserva cancelada' }
+  }[tipo];
   const filas = [
     ['Código', r.ID_Reserva], ['Sala', r.Sala + (sala.Ubicacion ? ' – ' + sala.Ubicacion : '')],
     ['Fecha', fechaLarga_(r.Fecha_Reserva)], ['Horario', r.Hora_Inicio + ' – ' + r.Hora_Fin + ' h'],
@@ -702,37 +1071,74 @@ function armarCorreo_(tipo, r, sala, cfg, paraEncargados) {
   }
   const pie = tipo === 'CONFIRMACION' && !paraEncargados
     ? '<p style="font-size:13px;color:#555">Puedes cancelarla desde la página de reservas, en la pestaña “Mis reservas”.</p>' : '';
-  const html =
-    '<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:auto;border:1px solid #e5e5e5;border-radius:8px;overflow:hidden">' +
-    '<div style="background:' + t.color + ';color:#fff;padding:16px 24px;font-size:18px;font-weight:bold">' + t.titulo + '</div>' +
-    '<div style="padding:16px 24px"><table style="border-collapse:collapse;width:100%;font-size:14px">' +
-    filas.map(f => '<tr><td style="padding:6px 0;color:#666;width:120px;vertical-align:top">' + f[0] + '</td><td style="padding:6px 0"><b>' +
-      escaparHtml_(String(f[1] || '')) + '</b></td></tr>').join('') +
-    '</table>' + pie + '</div><div style="background:#f6f6f6;padding:10px 24px;font-size:12px;color:#777">' +
-    escaparHtml_(cfg.NOMBRE_SERVICIO) + ' · Mensaje automático</div></div>';
   return {
-    subject: '[' + t.asunto + '] ' + r.Sala + ' · ' + fechaCorta_(r.Fecha_Reserva) + ' ' + r.Hora_Inicio + ' · ' + r.ID_Reserva,
-    htmlBody: html,
-    name: cfg.NOMBRE_SERVICIO,
-    ics: generarIcs_(r, tipo === 'CANCELACION')
+    asunto: '[' + t.asunto + '] ' + r.Sala + ' · ' + fechaCorta_(r.Fecha_Reserva) + ' ' + r.Hora_Inicio + ' · ' + r.ID_Reserva,
+    html: htmlCorreo_(cfg, t.color, t.estado, tablaCorreo_(filas) + pie),
+    ics: Utilities.newBlob(generarIcs_(r, tipo === 'CANCELACION'), 'text/calendar', 'reserva.ics')
   };
 }
 
-function enviarCorreo_(c, para) {
-  MailApp.sendEmail({
-    to: para, subject: c.subject, htmlBody: c.htmlBody, name: c.name,
-    attachments: [Utilities.newBlob(c.ics, 'text/calendar', 'reserva.ics')]
-  });
+/** Datos de acceso (cuenta nueva o contraseña restablecida por un administrador). */
+function enviarCredenciales_(u, contrasena, esRestablecimiento) {
+  try {
+    const cfg = leerConfig_();
+    const estado = esRestablecimiento ? 'Tu contraseña fue restablecida' : 'Tu cuenta de acceso';
+    const cuerpo = '<p style="font-size:14px">Hola ' + escaparHtml_(u.Nombre) + ',</p>' +
+      '<p style="font-size:14px">' + (esRestablecimiento ? 'Un administrador restableció tu contraseña.' : 'Se creó tu cuenta para reservar salas.') +
+      ' Estos son tus datos de acceso:</p>' +
+      tablaCorreo_([['Correo', u.Correo], ['Contraseña temporal', contrasena]]) +
+      '<p style="font-size:13px;color:#555">Al ingresar, el sistema te pedirá crear una contraseña nueva.</p>' +
+      botonCorreo_('Ingresar al sistema', urlAplicacion_());
+    enviarCorreoHtml_(u.Correo, '[' + estado + '] ' + cfg.NOMBRE_SERVICIO, htmlCorreo_(cfg, COLOR_MARCA, estado, cuerpo), [], cfg);
+    return true;
+  } catch (e) {
+    logCorreoFallido_('credenciales', u && u.Correo, 'usuario', e);
+    return false;
+  }
+}
+
+/** Aviso al usuario cuando un administrador aprueba su solicitud. */
+function enviarAprobacion_(u) {
+  try {
+    const cfg = leerConfig_();
+    const cuerpo = '<p style="font-size:14px">Hola ' + escaparHtml_(u.Nombre) + ',</p>' +
+      '<p style="font-size:14px">Tu solicitud fue aprobada. Ya puedes ingresar con tu correo y la contraseña que registraste.</p>' +
+      botonCorreo_('Ingresar al sistema', urlAplicacion_());
+    enviarCorreoHtml_(u.Correo, '[Cuenta aprobada] ' + cfg.NOMBRE_SERVICIO, htmlCorreo_(cfg, '#1a7f37', 'Cuenta aprobada', cuerpo), [], cfg);
+    return true;
+  } catch (e) {
+    logCorreoFallido_('aprobacion', u && u.Correo, 'usuario', e);
+    return false;
+  }
+}
+
+/** Aviso a los administradores activos cuando llega una solicitud de cuenta. */
+function avisarSolicitudAdmins_(s) {
+  try {
+    const cfg = leerConfig_();
+    const admins = leerUsuarios_().filter(u => u.Rol === 'ADMIN' && u.Estado === 'SI').map(u => u.Correo);
+    if (!admins.length) return false;
+    const cuerpo = '<p style="font-size:14px">Una persona solicitó acceso al sistema de reservas:</p>' +
+      tablaCorreo_([['Nombre', s.Nombre], ['Oficina', s.Oficina], ['Correo', s.Correo]]) +
+      '<p style="font-size:13px;color:#555">Apruébala o recházala en <b>Administración › Usuarios</b>.</p>' +
+      botonCorreo_('Abrir el sistema', urlAplicacion_());
+    enviarCorreoHtml_(admins.join(','), '[Solicitud de acceso] ' + s.Nombre + ' – ' + s.Oficina,
+      htmlCorreo_(cfg, COLOR_MARCA, 'Nueva solicitud de acceso', cuerpo), [], cfg);
+    return true;
+  } catch (e) {
+    logCorreoFallido_('solicitud', s && s.Correo, 'admins', e);
+    return false;
+  }
 }
 
 function generarIcs_(r, cancelar) {
   const utc = (fecha, hora) => Utilities.formatDate(Utilities.parseDate(fecha + ' ' + hora, TZ, 'yyyy-MM-dd HH:mm'), 'UTC', "yyyyMMdd'T'HHmmss'Z'");
   const esc = s => String(s || '').replace(/([,;\\])/g, '\\$1').replace(/\n/g, '\\n');
   return [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//OGPP UNMSM//Reservas//ES',
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//OGPL UNMSM//Reservas//ES',
     'METHOD:' + (cancelar ? 'CANCEL' : 'PUBLISH'),
     'BEGIN:VEVENT',
-    'UID:' + r.ID_Reserva + '@ogpp-unmsm',
+    'UID:' + r.ID_Reserva + '@ogpl-unmsm',
     'SEQUENCE:' + (cancelar ? 1 : 0),
     'DTSTAMP:' + Utilities.formatDate(fechaActual_(), 'UTC', "yyyyMMdd'T'HHmmss'Z'"),
     'DTSTART:' + utc(r.Fecha_Reserva, r.Hora_Inicio),
@@ -746,24 +1152,51 @@ function generarIcs_(r, cancelar) {
 }
 
 /* ============================================================================
- *  7. CONFIGURACIÓN INICIAL Y PRUEBAS
+ *  7. CONFIGURACIÓN INICIAL (solo desde el editor o la hoja)
  * ========================================================================== */
 
-/** Crea o repara todas las pestañas. Seguro de ejecutar varias veces. */
+/**
+ * Las funciones de mantenimiento son públicas para poder usarlas desde el menú, pero
+ * la página también podría invocarlas. Esta verificación las limita al propietario.
+ */
+function soloPropietario_() {
+  let activo = '', dueno = '';
+  try { activo = String(Session.getActiveUser().getEmail() || '').toLowerCase(); } catch (e) { /* vacío */ }
+  try { dueno = String(Session.getEffectiveUser().getEmail() || '').toLowerCase(); } catch (e) { /* vacío */ }
+  if (!activo || activo !== dueno) throw new Error('Esta función solo puede ejecutarla el propietario desde el editor o la hoja.');
+}
+
+function avisar_(texto) {
+  Logger.log(texto);
+  try { SpreadsheetApp.getUi().alert(texto); } catch (e) { /* ejecutado desde el editor: queda en el registro */ }
+}
+
+/** Crea o repara todas las pestañas y columnas. Seguro de ejecutar varias veces. */
 function setup() {
+  soloPropietario_();
   const libro = libro_();
   libro.setSpreadsheetTimeZone(TZ);
   Object.keys(ENCABEZADOS).forEach(nombre => {
     let h = libro.getSheetByName(nombre);
     if (!h) h = libro.insertSheet(nombre);
-    const enc = ENCABEZADOS[nombre];
-    if (h.getMaxColumns() < enc.length) h.insertColumnsAfter(h.getMaxColumns(), enc.length - h.getMaxColumns());
-    const actuales = h.getRange(1, 1, 1, enc.length).getValues()[0];
-    if (actuales.join('') === '') h.getRange(1, 1, 1, enc.length).setValues([enc]);
-    h.getRange(1, 1, 1, enc.length).setFontWeight('bold').setBackground('#e8eef7');
+    const requeridos = ENCABEZADOS[nombre];
+    const ultima = Math.max(h.getLastColumn(), 1);
+    const actuales = h.getRange(1, 1, 1, ultima).getValues()[0].map(x => String(x).trim()).filter(Boolean);
+    if (!actuales.length) {
+      h.getRange(1, 1, 1, requeridos.length).setValues([requeridos]);
+    } else {
+      // Migración: agrega al final las columnas que falten (no mueve datos existentes)
+      const faltan = requeridos.filter(k => actuales.indexOf(k) === -1);
+      if (faltan.length) {
+        if (h.getMaxColumns() < actuales.length + faltan.length) h.insertColumnsAfter(h.getMaxColumns(), actuales.length + faltan.length - h.getMaxColumns());
+        h.getRange(1, actuales.length + 1, 1, faltan.length).setValues([faltan]);
+      }
+    }
+    const total = Math.max(h.getLastColumn(), requeridos.length);
+    h.getRange(1, 1, 1, total).setFontWeight('bold').setBackground('#e8eef7');
     h.setFrozenRows(1);
     // Todo como texto plano: Sheets no convierte fechas ni horas.
-    h.getRange(1, 1, h.getMaxRows(), enc.length).setNumberFormat('@');
+    h.getRange(1, 1, h.getMaxRows(), total).setNumberFormat('@');
   });
 
   const cfgHoja = libro.getSheetByName(HOJAS.CONFIG);
@@ -779,23 +1212,41 @@ function setup() {
     salas.appendRow(['Sala 2', '8', 'Por definir', 'TV', '', 'SI']);
   }
 
-  const usuarios = libro.getSheetByName(HOJAS.USUARIOS);
-  if (usuarios.getLastRow() < 2) {
-    usuarios.appendRow([String(Session.getEffectiveUser().getEmail()).toLowerCase(), 'Administrador inicial', 'OGPP', 'ADMIN', 'SI']);
+  // Administrador inicial: el propietario. Si ningún ADMIN tiene contraseña, se genera una temporal.
+  const dueno = String(Session.getEffectiveUser().getEmail() || '').toLowerCase();
+  let usuarios = leerUsuarios_();
+  if (!usuarios.length) {
+    agregarFila_(HOJAS.USUARIOS, { Correo: dueno, Nombre: 'Administrador inicial', Oficina: 'OGPL', Rol: 'ADMIN', Activo: 'SI', Fecha_Creacion: ahoraTexto_() });
+    SpreadsheetApp.flush();
+    usuarios = leerUsuarios_();
   }
-  Logger.log('Setup completo. Completa las pestañas Usuarios, Salas y Config, y publica la aplicación web.');
+  const admins = usuarios.filter(u => u.Rol === 'ADMIN' && u.Estado === 'SI');
+  let mensaje = 'Setup completo.';
+  if (admins.length && !admins.some(u => u.Hash_Contrasena)) {
+    const admin = admins.filter(u => u.Correo === dueno)[0] || admins[0];
+    const temporal = contrasenaTemporal_();
+    const sal = nuevaSal_();
+    actualizarFila_(HOJAS.USUARIOS, admin._fila, { Hash_Contrasena: hashContrasena_(temporal, sal), Sal: sal, Debe_Cambiar: 'SI' });
+    mensaje += '\n\nUsuario administrador: ' + admin.Correo + '\nContraseña temporal: ' + temporal +
+      '\n\nIngresa a la página con estos datos; el sistema te pedirá cambiarla.';
+  }
+  avisar_(mensaje);
 }
 
-/** Prueba rápida desde el editor con tu propia cuenta. Revisa el registro de ejecución. */
-function probar() {
-  const ini = apiInicio();
-  Logger.log('inicio → ' + ini.codigo + ' · ' + ini.mensaje);
-  if (!ini.ok) return;
-  const cfg = leerConfig_();
-  const fecha = siguienteDiaHabil_(ahora_().fecha, cfg);
-  const ver = apiVerificar({ sala: '', fecha: fecha, hora_inicio: '10:00', hora_fin: '11:00' });
-  Logger.log('verificar ' + fecha + ' 10:00–11:00 → ' + ver.codigo + ' · ' + ver.mensaje);
-  Logger.log('mis reservas → ' + JSON.stringify(apiMisReservas().data));
+/** Menú: asigna una contraseña temporal a cualquier usuario (útil si un administrador la olvida). */
+function asignarContrasena() {
+  soloPropietario_();
+  const ui = SpreadsheetApp.getUi();
+  const r1 = ui.prompt('Asignar contraseña', 'Correo del usuario:', ui.ButtonSet.OK_CANCEL);
+  if (r1.getSelectedButton() !== ui.Button.OK) return;
+  const u = buscarUsuario_(r1.getResponseText());
+  if (!u) { ui.alert('No existe un usuario con ese correo en la pestaña Usuarios.'); return; }
+  const temporal = contrasenaTemporal_();
+  const sal = nuevaSal_();
+  actualizarFila_(HOJAS.USUARIOS, u._fila, { Hash_Contrasena: hashContrasena_(temporal, sal), Sal: sal, Debe_Cambiar: 'SI' });
+  CacheService.getScriptCache().remove('fallos_' + u.Correo);
+  ui.alert('Contraseña temporal para ' + u.Correo + ':\n\n' + temporal + '\n\nAl ingresar deberá cambiarla.' +
+    (u.Estado !== 'SI' ? '\n\nAtención: la cuenta no está activa (Activo = ' + u.Estado + ').' : ''));
 }
 
 /* ============================================================================
@@ -808,6 +1259,11 @@ function respuesta_(ok, codigo, mensaje, data) {
 
 function datosInvalidos_(errores) {
   return respuesta_(false, 'DATOS_INVALIDOS', errores.join(' '), { errores: errores });
+}
+
+function errorInterno_(err) {
+  return respuesta_(false, 'ERROR', 'Ocurrió un error interno. Intenta nuevamente en unos minutos.',
+    { detalle: String((err && err.message) || err) });
 }
 
 /**
@@ -843,6 +1299,10 @@ function ahora_() {
 
 function ahoraTexto_() {
   return Utilities.formatDate(fechaActual_(), TZ, 'yyyy-MM-dd HH:mm:ss');
+}
+
+function normCorreo_(v) {
+  return String(v === undefined || v === null ? '' : v).trim().toLowerCase();
 }
 
 function normFecha_(v) {
