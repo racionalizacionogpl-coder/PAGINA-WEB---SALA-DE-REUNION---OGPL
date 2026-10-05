@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reserva de Salas</title>
+  <style>
+    :root { --bg:#f5f6f8; --card:#fff; --ink:#1d2433; --muted:#667085; --line:#e4e7ec; --brand:#7a1f2b; --brand-soft:#f6e9eb;
+            --ok:#1a7f37; --okbg:#e8f5ec; --warn:#b54708; --warnbg:#fff4e5; --err:#b42318; --errbg:#fdecea; --info:#1f5fbf; --infobg:#e8f0fe;
+            --hour:48px; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial, Helvetica, sans-serif; background:var(--bg); color:var(--ink); font-size:14px; }
+    .pantalla { display:none; }
+    .pantalla.visible { display:block; }
+    /* ----- Acceso ----- */
+    .acceso { min-height:100vh; align-items:center; justify-content:center; padding:24px 16px; }
+    .pantalla.acceso.visible { display:flex; }
+    .acceso .card { width:100%; max-width:420px; padding:28px 28px 24px; box-shadow:0 4px 18px rgba(16,24,40,.08); }
+    .acceso .card.ancha { max-width:520px; }
+    .acceso .marca { text-align:center; margin-bottom:18px; }
+    .acceso .marca img { width:76px; height:76px; }
+    img.logo:not([src]) { visibility:hidden; }
+    .separador { display:flex; align-items:center; gap:10px; color:var(--muted); font-size:12px; margin:16px 0 12px; }
+    .separador::before, .separador::after { content:''; flex:1; height:1px; background:var(--line); }
+    .acceso button.secundario { width:100%; padding:10px; font-size:14px; border:1px solid var(--brand); color:var(--brand); background:#fff; font-weight:bold; }
+    .acceso button.secundario:hover { background:var(--brand-soft); }
+    .acceso .marca h1 { margin:10px 0 4px; font-size:20px; }
+    .acceso .marca p { margin:0; color:var(--muted); font-size:13px; }
+    .acceso .campo { margin-bottom:14px; }
+    .acceso .pie { margin-top:16px; text-align:center; font-size:13px; color:var(--muted); line-height:1.6; }
+    .acceso button.primary { width:100%; padding:11px; font-size:15px; }
+    .pw { position:relative; }
+    .pw input { padding-right:64px; }
+    .pw button { position:absolute; right:4px; top:4px; bottom:4px; border:none; background:none; color:var(--info); font-size:12px; padding:0 8px; }
+    .msg-acceso { border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:13px; display:none; }
+    .msg-acceso.err { display:block; background:var(--errbg); color:#7a1810; border:1px solid #f3b9b3; }
+    .msg-acceso.ok { display:block; background:var(--okbg); color:#14532d; border:1px solid #b7dfc3; }
+    .msg-acceso.info { display:block; background:var(--infobg); color:#173a7a; border:1px solid #c3d4f5; }
+    /* ----- Aplicación ----- */
+    header { background:var(--brand); color:#fff; padding:12px 20px; display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; justify-content:space-between; }
+    header .izq { display:flex; align-items:center; gap:12px; }
+    header .izq img { width:44px; height:44px; }
+    header h1 { margin:0; font-size:18px; }
+    header .izq small { display:block; font-size:12px; opacity:.85; margin-top:2px; }
+    header .der { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    header .quien { font-size:13px; text-align:right; line-height:1.4; }
+    header .quien b { font-size:14px; }
+    header button { background:rgba(255,255,255,.12); color:#fff; border:1px solid rgba(255,255,255,.35); padding:6px 12px; font-size:13px; }
+    header button:hover { background:rgba(255,255,255,.22); }
+    nav.tabs { display:flex; gap:4px; padding:0 20px; background:#fff; border-bottom:1px solid var(--line); overflow-x:auto; }
+    nav.tabs button { border:none; background:none; padding:12px 16px; font-size:14px; cursor:pointer; color:var(--muted); border-bottom:3px solid transparent; white-space:nowrap; border-radius:0; }
+    nav.tabs button.activa { color:var(--brand); border-bottom-color:var(--brand); font-weight:bold; }
+    .contador { display:inline-block; min-width:18px; padding:1px 6px; border-radius:9px; background:var(--err); color:#fff; font-size:11px; margin-left:4px; }
+    main { max-width:1100px; margin:0 auto; padding:20px; }
+    main > section { display:none; }
+    main > section.visible { display:block; }
+    h2 { margin:0 0 4px; font-size:18px; }
+    .sub { color:var(--muted); margin:0 0 16px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+    label { display:block; font-weight:bold; font-size:13px; margin-bottom:4px; }
+    label.check { display:flex; gap:8px; align-items:center; font-weight:normal; }
+    label.check input { width:auto; }
+    input, select, textarea, button { font:inherit; }
+    input, select { width:100%; padding:9px 10px; border:1px solid #c9ced6; border-radius:6px; background:#fff; color:var(--ink); }
+    input:focus, select:focus { outline:2px solid var(--brand-soft); border-color:var(--brand); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:14px; }
+    .grid2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px; }
+    .span2 { grid-column:span 2; }
+    @media (max-width:520px) { .span2 { grid-column:span 1; } main { padding:12px; } header .quien { text-align:left; } }
+    .ayuda { font-size:12px; color:var(--muted); margin-top:4px; }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+    button { border:1px solid var(--line); background:#fff; border-radius:6px; padding:8px 14px; cursor:pointer; }
+    button:hover { background:#f3f4f6; }
+    button.chip { padding:4px 10px; font-size:12px; border-radius:14px; }
+    button.primary { background:var(--brand); color:#fff; border-color:var(--brand); font-weight:bold; }
+    button.primary:hover { background:#651a24; }
+    button.primary:disabled { background:#c9a9ae; border-color:#c9a9ae; cursor:not-allowed; }
+    button.danger { background:var(--err); color:#fff; border-color:var(--err); }
+    button.okb { background:var(--ok); color:#fff; border-color:var(--ok); }
+    button.mini { padding:4px 10px; font-size:12px; }
+    button.link { border:none; background:none; color:var(--info); padding:0; text-decoration:underline; cursor:pointer; }
+    .estado { border-radius:8px; padding:12px 14px; margin-top:16px; border:1px solid transparent; line-height:1.5; }
+    .estado.ok { background:var(--okbg); border-color:#b7dfc3; color:#14532d; }
+    .estado.warn { background:var(--warnbg); border-color:#f5d4a3; color:#7a2e0e; }
+    .estado.err { background:var(--errbg); border-color:#f3b9b3; color:#7a1810; }
+    .estado.info { background:var(--infobg); border-color:#c3d4f5; color:#173a7a; }
+    .estado .acciones { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .solicitante { display:flex; flex-wrap:wrap; gap:6px 24px; background:var(--brand-soft); border-radius:8px; padding:10px 14px; margin-bottom:16px; font-size:13px; }
+    .solicitante span { color:var(--muted); }
+    .barra { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px; }
+    .barra .semana { font-weight:bold; margin:0 8px; }
+    .barra .der { margin-left:auto; display:flex; gap:12px; font-size:12px; color:var(--muted); align-items:center; flex-wrap:wrap; }
+    .barra input[type=date] { width:auto; }
+    .muestra { display:inline-block; width:12px; height:12px; border-radius:3px; vertical-align:middle; margin-right:4px; }
+    .scroll { overflow-x:auto; }
+    .cal { display:flex; min-width:760px; background:var(--card); border:1px solid var(--line); border-radius:8px; }
+    .regla { width:52px; flex:none; border-right:1px solid var(--line); }
+    .regla .h { height:var(--hour); font-size:11px; color:var(--muted); text-align:right; padding:2px 6px 0 0; border-top:1px solid var(--line); }
+    .encreg, .encdia { height:54px; border-bottom:1px solid var(--line); padding:6px; font-size:13px; }
+    .encdia b { display:block; }
+    .encdia .carriles { display:flex; font-size:11px; color:var(--muted); margin-top:4px; }
+    .encdia .carriles span { flex:1; text-align:center; }
+    .dia { flex:1; border-right:1px solid var(--line); min-width:130px; }
+    .dia:last-child { border-right:none; }
+    .dia.hoy .encdia { background:#fff6e5; }
+    .cuerpo { position:relative; display:flex; }
+    .cuerpo.feriado { background:repeating-linear-gradient(45deg,#fafafa,#fafafa 8px,#f0f0f0 8px,#f0f0f0 16px); }
+    .carril { flex:1; position:relative; border-left:1px dashed var(--line); cursor:pointer; }
+    .carril:first-child { border-left:none; }
+    .cuerpo.feriado .carril { cursor:not-allowed; }
+    .carril:hover .franja { background:rgba(122,31,43,.03); }
+    .franja { height:var(--hour); border-top:1px solid var(--line); }
+    .res { position:absolute; left:3px; right:3px; border-radius:6px; padding:3px 6px; font-size:11px; overflow:hidden; cursor:pointer; background:#eef1f6; border-left:3px solid #8a94a6; }
+    .res.propia { background:var(--brand-soft); border-left-color:var(--brand); }
+    .res b { display:block; }
+    .feriado-et { position:absolute; top:8px; left:6px; right:6px; font-size:11px; color:var(--muted); text-align:center; pointer-events:none; }
+    .tarjeta { display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; justify-content:space-between; }
+    .tarjeta .datos b { font-size:15px; }
+    .tarjeta .datos div { color:var(--muted); margin-top:2px; }
+    .etiqueta { display:inline-block; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:bold; white-space:nowrap; }
+    .etiqueta.ok { background:var(--okbg); color:var(--ok); }
+    .etiqueta.cancelada, .etiqueta.no { background:#f2f4f7; color:var(--muted); }
+    .etiqueta.pend { background:var(--warnbg); color:var(--warn); }
+    .etiqueta.admin { background:var(--brand-soft); color:var(--brand); }
+    table { border-collapse:collapse; width:100%; font-size:13px; }
+    th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+    th { background:#f9fafb; font-size:12px; color:var(--muted); }
+    tr.cancelada td, tr.inactivo td { color:var(--muted); }
+    tr.pendiente td { background:#fffaf2; }
+    td .acciones { display:flex; gap:6px; flex-wrap:wrap; }
+    .stats { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .stat { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:10px 16px; font-size:12px; color:var(--muted); min-width:130px; }
+    .stat b { display:block; font-size:22px; color:var(--ink); }
+    .subnav { display:flex; gap:8px; margin-bottom:16px; }
+    .subnav button.activa { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .vacio { color:var(--muted); padding:24px; text-align:center; }
+    #aviso { position:fixed; left:50%; bottom:20px; transform:translateX(-50%); background:#1d2433; color:#fff; padding:10px 18px; border-radius:8px; max-width:90vw; opacity:0; transition:opacity .25s; pointer-events:none; z-index:20; }
+    #aviso.ver { opacity:1; }
+    dialog { border:none; border-radius:10px; padding:0; width:min(480px, 92vw); box-shadow:0 10px 40px rgba(0,0,0,.28); }
+    dialog::backdrop { background:rgba(0,0,0,.35); }
+    dialog .dh { background:var(--brand); color:#fff; padding:12px 16px; font-weight:bold; }
+    dialog .db { padding:14px 16px; font-size:14px; }
+    dialog .db table td { border:none; padding:3px 10px 3px 0; }
+    dialog .db table td:first-child { color:var(--muted); width:110px; }
+    dialog .db .campo { margin-top:10px; }
+    dialog .df { padding:8px 16px 16px; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+    .exito { text-align:center; padding:28px 16px; }
+    .exito .codigo { font-size:28px; font-weight:bold; color:var(--brand); letter-spacing:1px; margin:8px 0; }
+    .exito .check { font-size:44px; color:var(--ok); }
+    .cargando { color:var(--muted); padding:20px; text-align:center; }
+    .seg { display:flex; gap:8px; }
+    .seg label { flex:1; display:flex; align-items:center; justify-content:center; gap:6px; font-weight:normal; border:1px solid #c9ced6; border-radius:6px; padding:8px 10px; cursor:pointer; background:#fff; margin:0; }
+    .seg label input { width:auto; margin:0; accent-color:var(--brand); }
+    .seg label:has(input:checked) { border-color:var(--brand); background:var(--brand-soft); color:var(--brand); font-weight:bold; }
+    .seg.falta label { border-color:var(--err); }
+    .prio { margin-top:12px; padding:10px 12px; border-radius:8px; background:#fff; border:1px dashed var(--warn); color:var(--ink); }
+    .prio.no { border-color:var(--line); color:var(--muted); }
+    button.prio-btn { background:var(--warn); color:#fff; border-color:var(--warn); font-weight:bold; }
+    .etiqueta.prioridad { background:var(--warnbg); color:var(--warn); }
+    .aviso-prio { background:var(--warnbg); border:1px solid #f5d4a3; color:#7a2e0e; border-radius:8px; padding:10px 12px; margin-top:10px; font-size:13px; }
+    textarea { width:100%; padding:9px 10px; border:1px solid #c9ced6; border-radius:6px; font:inherit; resize:vertical; }
+  </style>
+</head>
+<body>
+
+  <!-- ================= PANTALLA: INGRESO ================= -->
+  <div id="p-login" class="pantalla acceso">
+    <div class="card">
+      <div class="marca">
+        <img class="logo" alt="Escudo UNMSM">
+        <h1>🔐 Acceso al sistema</h1>
+        <p class="txt-servicio"></p>
+        <p class="txt-oficina"></p>
+      </div>
+      <form id="fLogin" autocomplete="on">
+        <div id="loginMsg" class="msg-acceso"></div>
+        <div class="campo">
+          <label for="lCorreo">Correo</label>
+          <input type="email" id="lCorreo" autocomplete="username" required placeholder="usuario@unmsm.edu.pe">
+        </div>
+        <div class="campo">
+          <label for="lClave">Contraseña</label>
+          <div class="pw"><input type="password" id="lClave" autocomplete="current-password" required><button type="button" data-ver="lClave">Mostrar</button></div>
+        </div>
+        <button type="submit" class="primary" id="btnLogin">Ingresar al sistema</button>
+      </form>
+      <div id="lnkSolicitud" style="display:none">
+        <div class="separador">¿No tienes cuenta?</div>
+        <button type="button" class="secundario" id="irSolicitud">Crear una cuenta</button>
+      </div>
+      <div class="pie">¿Olvidaste tu contraseña? Pide a un administrador que la restablezca.</div>
+    </div>
+  </div>
+
+  <!-- ================= PANTALLA: SOLICITAR CUENTA ================= -->
+  <div id="p-solicitud" class="pantalla acceso">
+    <div class="card ancha">
+      <div class="marca">
+        <img class="logo" alt="Escudo UNMSM">
+        <h1>Crear una cuenta</h1>
+        <p id="registroIntro">Completa tus datos para registrarte.</p>
+      </div>
+      <form id="fSolicitud">
+        <div id="solMsg" class="msg-acceso"></div>
+        <div class="grid2">
+          <div class="campo"><label for="sNombre">Nombre completo</label><input id="sNombre" required maxlength="120" placeholder="Ej. Juan Pérez García"></div>
+          <div class="campo"><label for="sOficina">Oficina</label><select id="sOficina" required></select></div>
+          <div class="campo span2"><label for="sCorreo">Correo</label><input type="email" id="sCorreo" required autocomplete="email" placeholder="usuario@unmsm.edu.pe"><div class="ayuda" id="registroDominios"></div></div>
+          <div class="campo"><label for="sClave">Contraseña</label><div class="pw"><input type="password" id="sClave" required autocomplete="new-password"><button type="button" data-ver="sClave">Mostrar</button></div><div class="ayuda">Mínimo 8 caracteres, con letras y números.</div></div>
+          <div class="campo"><label for="sClave2">Repite la contraseña</label><input type="password" id="sClave2" required autocomplete="new-password"></div>
+        </div>
+        <button type="submit" class="primary" id="btnSolicitar">Crear cuenta</button>
+      </form>
+      <div class="pie"><button class="link" id="volverLogin">Volver al ingreso</button></div>
+    </div>
+  </div>
+
+  <!-- ================= PANTALLA: CAMBIAR CONTRASEÑA ================= -->
+  <div id="p-cambio" class="pantalla acceso">
+    <div class="card">
+      <div class="marca">
+        <img class="logo" alt="Escudo UNMSM">
+        <h1>Cambiar contraseña</h1>
+        <p id="cambioIntro">Elige una contraseña nueva.</p>
+      </div>
+      <form id="fCambio">
+        <div id="cambioMsg" class="msg-acceso"></div>
+        <div class="campo"><label for="cActual">Contraseña actual</label><input type="password" id="cActual" required autocomplete="current-password"></div>
+        <div class="campo"><label for="cNueva">Contraseña nueva</label><div class="pw"><input type="password" id="cNueva" required autocomplete="new-password"><button type="button" data-ver="cNueva">Mostrar</button></div><div class="ayuda">Mínimo 8 caracteres, con letras y números.</div></div>
+        <div class="campo"><label for="cNueva2">Repite la contraseña nueva</label><input type="password" id="cNueva2" required autocomplete="new-password"></div>
+        <button type="submit" class="primary" id="btnCambiar">Guardar contraseña</button>
+      </form>
+      <div class="pie"><span id="volverCambioWrap"><button class="link" id="cancelarCambio">Volver</button> · </span><button class="link" id="salirCambio">Cerrar sesión</button></div>
+    </div>
+  </div>
+
+  <!-- ================= PANTALLA: CARGANDO ================= -->
+  <div id="p-cargando" class="pantalla"><div class="cargando" style="padding-top:120px">Cargando…</div></div>
+
+  <!-- ================= PANTALLA: APLICACIÓN ================= -->
+  <div id="p-app" class="pantalla">
+    <header>
+      <div class="izq">
+        <img class="logo" alt="Escudo UNMSM">
+        <div><h1 class="txt-servicio"></h1><small class="txt-oficina"></small></div>
+      </div>
+      <div class="der">
+        <div class="quien"><b id="uNombre"></b><br><span id="uOficina"></span></div>
+        <button id="btnMiClave" title="Cambiar contraseña">Contraseña</button>
+        <button id="btnSalir">Salir</button>
+      </div>
+    </header>
+    <nav class="tabs" id="tabs">
+      <button data-vista="reservar" class="activa">Reservar</button>
+      <button data-vista="calendario">Calendario</button>
+      <button data-vista="mis">Mis reservas</button>
+      <button data-vista="admin" id="tabAdmin" style="display:none">Administración <span class="contador" id="cntPend" style="display:none"></span></button>
+    </nav>
+
+    <main>
+      <!-- ============ RESERVAR ============ -->
+      <section id="v-reservar" class="visible">
+        <div id="formulario">
+          <h2>Nueva reserva</h2>
+          <p class="sub">Elige sala, fecha y horario. La disponibilidad se verifica mientras completas el formulario.</p>
+          <div class="solicitante" id="solicitante"></div>
+          <div class="card">
+            <div class="grid">
+              <div><label for="fSala">Sala</label><select id="fSala"></select></div>
+              <div><label for="fFecha">Fecha</label><input type="date" id="fFecha"></div>
+              <div><label for="fInicio">Hora de inicio</label><select id="fInicio"></select></div>
+              <div>
+                <label for="fFin">Hora de fin</label>
+                <select id="fFin"></select>
+                <div class="chips" id="duraciones"></div>
+              </div>
+              <div class="span2">
+                <label for="fTema">Tema de la reunión <span style="font-weight:normal;color:var(--muted)">(opcional)</span></label>
+                <input type="text" id="fTema" maxlength="120" placeholder="Reunión de trabajo">
+              </div>
+              <div>
+                <label for="fAsistentes">Asistentes <span style="font-weight:normal;color:var(--muted)">(opcional)</span></label>
+                <input type="number" id="fAsistentes" min="1" max="200" placeholder="Ej. 8">
+              </div>
+              <div>
+                <label>¿Se usará el proyector?</label>
+                <div class="seg" id="segProyector">
+                  <label><input type="radio" name="proyector" value="SI"> Sí</label>
+                  <label><input type="radio" name="proyector" value="NO"> No</label>
+                </div>
+              </div>
+              <div>
+                <label>¿Se usarán las laptops?</label>
+                <div class="seg" id="segLaptops">
+                  <label><input type="radio" name="laptops" value="SI"> Sí</label>
+                  <label><input type="radio" name="laptops" value="NO"> No</label>
+                </div>
+              </div>
+            </div>
+            <div id="estado" class="estado info" style="display:none"></div>
+            <div style="margin-top:16px; display:flex; gap:8px; flex-wrap:wrap">
+              <button class="primary" id="btnReservar" disabled>Reservar</button>
+              <button id="btnLimpiar">Limpiar</button>
+            </div>
+          </div>
+          <div class="ayuda" id="reglas"></div>
+        </div>
+
+        <div id="exito" class="card exito" style="display:none">
+          <div class="check">✔</div>
+          <h2>Reserva confirmada</h2>
+          <div class="codigo" id="exCodigo"></div>
+          <p id="exDetalle" style="margin:6px 0"></p>
+          <p class="ayuda" id="exCorreo"></p>
+          <div style="margin-top:16px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap">
+            <button class="primary" id="btnOtra">Hacer otra reserva</button>
+            <button id="btnVerMis">Ver mis reservas</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CALENDARIO ============ -->
+      <section id="v-calendario">
+        <h2>Calendario de ocupación</h2>
+        <p class="sub">Haz clic en un espacio libre para empezar una reserva en esa sala y hora.</p>
+        <div class="barra">
+          <button id="semAnt">◀ Anterior</button>
+          <button id="semHoy">Hoy</button>
+          <button id="semSig">Siguiente ▶</button>
+          <span class="semana" id="semTitulo"></span>
+          <input type="date" id="semIr" title="Ir a una fecha">
+          <span class="der">
+            <span><span class="muestra" style="background:var(--brand-soft);border-left:3px solid var(--brand)"></span>Mis reservas</span>
+            <span><span class="muestra" style="background:#eef1f6;border-left:3px solid #8a94a6"></span>Otras oficinas</span>
+          </span>
+        </div>
+        <div class="scroll"><div class="cal" id="cal"><div class="cargando">Cargando…</div></div></div>
+      </section>
+
+      <!-- ============ MIS RESERVAS ============ -->
+      <section id="v-mis">
+        <h2>Mis reservas</h2>
+        <p class="sub">Puedes cancelar una reserva hasta antes de su hora de inicio.</p>
+        <div id="misProximas"><div class="cargando">Cargando…</div></div>
+        <h2 style="margin-top:24px">Historial reciente</h2>
+        <div id="misHistorial"></div>
+      </section>
+
+      <!-- ============ ADMINISTRACIÓN ============ -->
+      <section id="v-admin">
+        <h2>Administración</h2>
+        <div class="subnav">
+          <button id="subReservas" class="activa">Reservas</button>
+          <button id="subUsuarios">Usuarios <span class="contador" id="cntPend2" style="display:none"></span></button>
+        </div>
+
+        <div id="admReservas">
+          <p class="sub">Todas las reservas del periodo elegido. Como administrador puedes cancelar cualquier reserva futura.</p>
+          <div class="card">
+            <div class="grid">
+              <div><label for="aDesde">Desde</label><input type="date" id="aDesde"></div>
+              <div><label for="aHasta">Hasta</label><input type="date" id="aHasta"></div>
+              <div><label for="aSala">Sala</label><select id="aSala"></select></div>
+              <div><label for="aEstado">Estado</label>
+                <select id="aEstado"><option value="TODAS">Todas</option><option value="CONFIRMADA">Confirmadas</option><option value="CANCELADA">Canceladas</option></select></div>
+            </div>
+            <div style="margin-top:12px"><button class="primary" id="aBuscar">Actualizar</button></div>
+          </div>
+          <div class="stats" id="aStats"></div>
+          <div class="card scroll" id="aTabla"></div>
+        </div>
+
+        <div id="admUsuarios" style="display:none">
+          <div class="card">
+            <h2 style="margin-bottom:12px">⚙️ Crear nuevo usuario</h2>
+            <form id="fNuevoUsuario">
+              <div class="grid2">
+                <div><label for="nCorreo">Correo</label><input type="email" id="nCorreo" required placeholder="usuario@unmsm.edu.pe"></div>
+                <div><label for="nClave">Contraseña temporal</label>
+                  <div class="pw"><input type="text" id="nClave" required placeholder="Mínimo 8 caracteres"><button type="button" id="nGenerar">Generar</button></div></div>
+                <div><label for="nNombre">Nombre completo</label><input id="nNombre" required maxlength="120" placeholder="Ej. Juan Pérez García"></div>
+                <div><label for="nRol">Rol</label><select id="nRol"><option value="USUARIO">Usuario</option><option value="ADMIN">Administrador</option></select></div>
+                <div class="span2"><label for="nOficina">Oficina</label><select id="nOficina" required></select></div>
+              </div>
+              <label class="check" style="margin-top:12px"><input type="checkbox" id="nEnviar" checked> Enviar los datos de acceso por correo al usuario</label>
+              <p class="ayuda">El usuario deberá cambiar la contraseña temporal la primera vez que ingrese.</p>
+              <button type="submit" class="okb" id="btnCrearUsuario" style="width:100%;margin-top:6px;font-weight:bold">Crear usuario</button>
+            </form>
+          </div>
+          <div class="card scroll" id="uTabla"><div class="cargando">Cargando…</div></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="dlg">
+    <div class="dh" id="dlgTitulo"></div>
+    <div class="db" id="dlgCuerpo"></div>
+    <div class="df" id="dlgPie"></div>
+  </dialog>
+  <div id="aviso"></div>
+
+<script>
+  /* ---------------- Utilidades ---------------- */
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const DIAS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+  const aMin = h => { const p = String(h).split(':'); return (+p[0]) * 60 + (+p[1] || 0); };
+  const aHora = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  const dow = f => { const d = new Date(f + 'T12:00:00Z').getUTCDay(); return d === 0 ? 7 : d; };
+  const sumarDias = (f, n) => { const d = new Date(f + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const fechaLarga = f => DIAS[dow(f)] + ' ' + f.slice(8, 10) + '/' + f.slice(5, 7) + '/' + f.slice(0, 4);
+  const fechaCorta = f => f.slice(8, 10) + '/' + f.slice(5, 7);
+  const durTxt = m => (m >= 60 ? Math.floor(m / 60) + ' h' : '') + (m % 60 ? (m >= 60 ? ' ' : '') + (m % 60) + ' min' : '');
+  const reglaClave = pw => (pw.length < 8 ? 'La contraseña debe tener al menos 8 caracteres.' :
+    (!/[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(pw) || !/\d/.test(pw)) ? 'La contraseña debe combinar letras y números.' : '');
+
+  /** Llamada directa al servidor. */
+  function llamar(nombre, ...args) {
+    return new Promise((ok, fallo) => {
+      google.script.run.withSuccessHandler(ok).withFailureHandler(e => fallo(e))[nombre](...args);
+    });
+  }
+  /** Llamada autenticada: agrega el token y maneja sesión expirada o cambio obligatorio. */
+  function api(nombre, ...args) {
+    return llamar(nombre, TOKEN, ...args).then(r => {
+      if (r && r.codigo === 'SESION_EXPIRADA') { cerrarSesionLocal('Tu sesión expiró. Ingresa nuevamente.'); throw new Error('sesion'); }
+      if (r && r.codigo === 'DEBE_CAMBIAR') { mostrarCambio(true); throw new Error('cambio'); }
+      return r;
+    });
+  }
+  let avisoT;
+  function aviso(txt) {
+    const a = $('aviso'); a.textContent = txt; a.classList.add('ver');
+    clearTimeout(avisoT); avisoT = setTimeout(() => a.classList.remove('ver'), 4500);
+  }
+  function errorRed(e) {
+    if (e && (e.message === 'sesion' || e.message === 'cambio')) return;
+    aviso('No se pudo conectar con el servidor. Intenta de nuevo.'); console.error(e);
+  }
+  function mensaje(id, tipo, texto) { const m = $(id); m.className = 'msg-acceso ' + (texto ? tipo : ''); m.textContent = texto || ''; }
+
+  function dialogo(titulo, cuerpoHtml, botones) {
+    $('dlgTitulo').textContent = titulo;
+    $('dlgCuerpo').innerHTML = cuerpoHtml;
+    const pie = $('dlgPie'); pie.innerHTML = '';
+    botones.forEach(b => {
+      const el = document.createElement('button');
+      el.textContent = b.texto; if (b.clase) el.className = b.clase;
+      el.addEventListener('click', () => b.fn(el));
+      pie.appendChild(el);
+    });
+    const d = $('dlg'); if (!d.open) d.showModal();
+  }
+  const cerrarDialogo = () => { const d = $('dlg'); if (d.open) d.close(); };
+
+  function generarClave() {
+    const letras = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ', nums = '23456789';
+    const r = new Uint32Array(10); crypto.getRandomValues(r);
+    return Array.from(r, (n, i) => (i === 3 || i === 7) ? nums[n % nums.length] : letras[n % letras.length]).join('');
+  }
+
+  /* ---------------- Sesión ---------------- */
+  const CLAVE_TOKEN = 'reservas_ogpl_token';
+  function leerToken() { try { return sessionStorage.getItem(CLAVE_TOKEN) || ''; } catch (e) { return ''; } }
+  function guardarToken(t) { TOKEN = t || ''; try { if (t) sessionStorage.setItem(CLAVE_TOKEN, t); else sessionStorage.removeItem(CLAVE_TOKEN); } catch (e) { /* sin almacenamiento */ } }
+  let TOKEN = leerToken();
+
+  function mostrarPantalla(p) {
+    document.querySelectorAll('.pantalla').forEach(x => x.classList.toggle('visible', x.id === 'p-' + p));
+    window.scrollTo(0, 0);
+  }
+
+  function cerrarSesionLocal(msg) {
+    guardarToken('');
+    S = null; cerrarDialogo();
+    $('fLogin').reset(); mensaje('loginMsg', 'info', msg || '');
+    mostrarPantalla('login');
+    // Solo enfoca el correo si nadie está escribiendo ya (evita mover el cursor mientras se escribe o autocompleta)
+    const activo = document.activeElement;
+    if (!$('lCorreo').value && (!activo || activo === document.body)) $('lCorreo').focus();
+  }
+
+  function mostrarCambio(obligatorio) {
+    $('fCambio').reset(); mensaje('cambioMsg', '', '');
+    $('cambioIntro').textContent = obligatorio
+      ? 'Por seguridad, debes reemplazar tu contraseña temporal antes de continuar.'
+      : 'Elige una contraseña nueva.';
+    $('volverCambioWrap').style.display = obligatorio ? 'none' : '';
+    $('p-cambio').dataset.obligatorio = obligatorio ? '1' : '';
+    mostrarPantalla('cambio');
+  }
+
+  /* ---------------- Estado de la aplicación ---------------- */
+  let S = null;            // datos de inicio
+  let verifSeq = 0, verifTimer = null;
+  let verifOk = null;      // { sala } cuando el formulario está verificado y libre
+  let semanaRef = null, semanaDatos = null, misDatos = null, usuariosDatos = null;
+
+  let PUBLICO = null;      // logo, textos y opciones de registro (apiPublico)
+  enlazarEventos();
+  mostrarPantalla('cargando');
+  llamar('apiPublico').then(r => {
+    if (r && r.ok) aplicarPublico(r.data);
+    if (TOKEN) arrancar(); else cerrarSesionLocal('');
+  }).catch(e => {
+    console.error(e);
+    cerrarSesionLocal('');
+    mensaje('loginMsg', 'err', 'El servidor no respondió como se esperaba (' + (e && e.message ? e.message : 'error') +
+      '). Verifica que Code.gs y Logo.gs estén actualizados y publicados como una nueva versión.');
+  });
+
+  /** Llena una lista desplegable de oficinas; conserva el valor actual aunque no esté en la lista. */
+  function poblarOficinas(id, lista, actual) {
+    const sel = $(id); if (!sel) return;
+    const opciones = lista.slice();
+    if (actual && opciones.indexOf(actual) === -1) opciones.unshift(actual);
+    sel.innerHTML = (actual ? '' : '<option value="">Selecciona tu oficina</option>') +
+      opciones.map(o => '<option value="' + esc(o) + '">' + esc(o) + '</option>').join('');
+    sel.value = actual || '';
+  }
+
+  function aplicarPublico(d) {
+    PUBLICO = d;
+    document.title = d.servicio;
+    document.querySelectorAll('img.logo').forEach(i => { i.src = d.logo; });
+    document.querySelectorAll('.txt-servicio').forEach(x => { x.textContent = d.servicio; });
+    document.querySelectorAll('.txt-oficina').forEach(x => { x.textContent = d.oficina; });
+    $('lnkSolicitud').style.display = d.permitir_registro ? '' : 'none';
+    $('registroIntro').textContent = d.requiere_aprobacion
+      ? 'Completa tus datos. Un administrador revisará tu cuenta y te avisaremos por correo cuando puedas ingresar.'
+      : 'Completa tus datos. Podrás ingresar apenas crees tu cuenta.';
+    poblarOficinas('sOficina', d.oficinas || [], '');
+    $('registroDominios').textContent = d.dominios && d.dominios.length ? 'Solo se aceptan correos ' + d.dominios.map(x => '@' + x).join(', ') + '.' : '';
+  }
+
+  function arrancar() {
+    mostrarPantalla('cargando');
+    api('apiInicio').then(r => {
+      if (!r.ok) { cerrarSesionLocal(r.mensaje); return; }
+      S = r.data; prepararApp(); mostrarPantalla('app');
+    }).catch(e => {
+      if (e && (e.message === 'sesion' || e.message === 'cambio')) return;
+      cerrarSesionLocal('No se pudo cargar la aplicación. Intenta de nuevo.'); console.error(e);
+    });
+  }
+
+  /* ---------------- Eventos (se enlazan una sola vez) ---------------- */
+  function enlazarEventos() {
+    // Mostrar / ocultar contraseñas
+    document.querySelectorAll('button[data-ver]').forEach(b => b.addEventListener('click', () => {
+      const i = $(b.dataset.ver); const ver = i.type === 'password'; i.type = ver ? 'text' : 'password'; b.textContent = ver ? 'Ocultar' : 'Mostrar';
+    }));
+
+    $('fLogin').addEventListener('submit', ev => {
+      ev.preventDefault();
+      const btn = $('btnLogin'); btn.disabled = true; btn.textContent = 'Ingresando…'; mensaje('loginMsg', '', '');
+      llamar('apiLogin', $('lCorreo').value, $('lClave').value).then(r => {
+        btn.disabled = false; btn.textContent = 'Ingresar al sistema';
+        if (!r.ok) { mensaje('loginMsg', 'err', r.mensaje); $('lClave').value = ''; $('lClave').focus(); return; }
+        guardarToken(r.data.token);
+        if (r.data.debe_cambiar) mostrarCambio(true); else arrancar();
+      }).catch(e => { btn.disabled = false; btn.textContent = 'Ingresar al sistema'; mensaje('loginMsg', 'err', 'No se pudo conectar con el servidor.'); console.error(e); });
+    });
+
+    $('irSolicitud').addEventListener('click', () => { $('fSolicitud').reset(); mensaje('solMsg', '', ''); mostrarPantalla('solicitud'); });
+    $('volverLogin').addEventListener('click', () => mostrarPantalla('login'));
+    $('fSolicitud').addEventListener('submit', ev => {
+      ev.preventDefault();
+      const pw = $('sClave').value;
+      const err = reglaClave(pw) || (pw !== $('sClave2').value ? 'Las contraseñas no coinciden.' : '');
+      if (err) return mensaje('solMsg', 'err', err);
+      const btn = $('btnSolicitar'); btn.disabled = true;
+      llamar('apiSolicitarCuenta', { nombre: $('sNombre').value, oficina: $('sOficina').value, correo: $('sCorreo').value, contrasena: pw }).then(r => {
+        btn.disabled = false;
+        if (!r.ok) return mensaje('solMsg', 'err', r.mensaje);
+        const correo = $('sCorreo').value.trim().toLowerCase();
+        $('fSolicitud').reset();
+        mostrarPantalla('login'); mensaje('loginMsg', 'ok', r.mensaje);
+        $('lCorreo').value = correo; $('lClave').value = '';
+      }).catch(e => { btn.disabled = false; mensaje('solMsg', 'err', 'No se pudo conectar con el servidor.'); console.error(e); });
+    });
+
+    $('fCambio').addEventListener('submit', ev => {
+      ev.preventDefault();
+      const nueva = $('cNueva').value;
+      const err = reglaClave(nueva) || (nueva !== $('cNueva2').value ? 'Las contraseñas nuevas no coinciden.' : '') ||
+        (nueva === $('cActual').value ? 'La nueva contraseña debe ser distinta de la actual.' : '');
+      if (err) return mensaje('cambioMsg', 'err', err);
+      const btn = $('btnCambiar'); btn.disabled = true;
+      api('apiCambiarContrasena', $('cActual').value, nueva).then(r => {
+        btn.disabled = false;
+        if (!r.ok) return mensaje('cambioMsg', 'err', r.mensaje);
+        guardarToken(r.data.token);
+        aviso('Contraseña actualizada.');
+        if (S && !$('p-cambio').dataset.obligatorio) mostrarPantalla('app'); else arrancar();
+      }).catch(e => { btn.disabled = false; errorRed(e); });
+    });
+    $('cancelarCambio').addEventListener('click', () => mostrarPantalla('app'));
+    $('salirCambio').addEventListener('click', salir);
+    $('btnMiClave').addEventListener('click', () => mostrarCambio(false));
+    $('btnSalir').addEventListener('click', salir);
+
+    // Aplicación
+    document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => mostrar(b.dataset.vista)));
+    ['fSala', 'fFecha', 'fInicio', 'fFin'].forEach(id => $(id).addEventListener('change', programarVerificacion));
+    // Los asistentes solo afectan la advertencia de capacidad: se refresca sin bloquear el botón
+    // (si no, el clic en "Reservar" justo después de escribir se perdería).
+    $('fAsistentes').addEventListener('change', () => {
+      if (!verifOk) return programarVerificacion();
+      clearTimeout(verifTimer);
+      verifTimer = setTimeout(() => verificar(true), 300);
+    });
+    $('duraciones').addEventListener('click', e => {
+      const b = e.target.closest('button[data-d]'); if (!b) return;
+      if (!$('fInicio').value) { aviso('Primero elige la hora de inicio.'); return; }
+      const fin = aMin($('fInicio').value) + (+b.dataset.d);
+      if (fin > aMin(S.cfg.cierre)) { aviso('Esa duración pasa del horario de cierre (' + S.cfg.cierre + ').'); return; }
+      $('fFin').value = aHora(fin);
+      programarVerificacion();
+    });
+    $('btnReservar').addEventListener('click', () => confirmarReserva(null));
+    document.querySelectorAll('.seg input').forEach(i => i.addEventListener('change', () => i.closest('.seg').classList.remove('falta')));
+    $('btnLimpiar').addEventListener('click', limpiarForm);
+    $('btnOtra').addEventListener('click', () => { limpiarForm(); mostrarFormulario(); });
+    $('btnVerMis').addEventListener('click', () => { mostrarFormulario(); mostrar('mis'); });
+    $('semAnt').addEventListener('click', () => cargarSemana(sumarDias(semanaRef, -7)));
+    $('semSig').addEventListener('click', () => cargarSemana(sumarDias(semanaRef, 7)));
+    $('semHoy').addEventListener('click', () => cargarSemana(S.hoy));
+    $('semIr').addEventListener('change', e => { if (e.target.value) cargarSemana(e.target.value); });
+    $('cal').addEventListener('click', clicCalendario);
+    $('aBuscar').addEventListener('click', cargarAdmin);
+    $('subReservas').addEventListener('click', () => subAdmin('reservas'));
+    $('subUsuarios').addEventListener('click', () => subAdmin('usuarios'));
+    $('nGenerar').addEventListener('click', () => { $('nClave').value = generarClave(); });
+    $('fNuevoUsuario').addEventListener('submit', crearUsuario);
+  }
+
+  function salir() {
+    const t = TOKEN;
+    if (t) llamar('apiLogout', t).catch(() => {});
+    cerrarSesionLocal('Cerraste sesión.');
+  }
+
+  /* ---------------- Preparar la aplicación para el usuario que ingresó ---------------- */
+  function prepararApp() {
+    $('uNombre').textContent = S.usuario.nombre;
+    $('uOficina').textContent = S.usuario.oficina + ' · ' + S.usuario.correo;
+    $('solicitante').innerHTML = '<div><span>Solicitante:</span> <b>' + esc(S.usuario.nombre) + '</b></div>' +
+      '<div><span>Oficina:</span> <b>' + esc(S.usuario.oficina) + '</b>' + (S.usuario.prioridad ? ' <span class="etiqueta prioridad">⭐ Prioridad</span>' : '') + '</div>' +
+      '<div><span>Correo:</span> <b>' + esc(S.usuario.correo) + '</b></div>';
+    poblarOficinas('nOficina', S.oficinas.map(o => o.oficina), '');
+    const esAdmin = S.usuario.rol === 'ADMIN';
+    $('tabAdmin').style.display = esAdmin ? '' : 'none';
+    pintarPendientes(S.pendientes);
+
+    $('fSala').innerHTML = '<option value="">Cualquier sala libre</option>' +
+      S.salas.map(s => '<option value="' + esc(s.sala) + '">' + esc(s.sala) + (s.capacidad ? ' (hasta ' + s.capacidad + ' personas)' : '') + '</option>').join('');
+    $('aSala').innerHTML = '<option value="">Todas</option>' + S.salas.map(s => '<option value="' + esc(s.sala) + '">' + esc(s.sala) + '</option>').join('');
+    $('fFecha').min = S.hoy; $('fFecha').max = S.limite;
+
+    poblarHoras();
+    poblarDuraciones();
+    const dias = S.cfg.dias_habiles.map(d => DIAS[d]).join(', ');
+    $('reglas').textContent = 'Reservas de ' + S.cfg.apertura + ' a ' + S.cfg.cierre + ' · ' + dias + ' · duración de ' +
+      durTxt(S.cfg.duracion_min) + ' a ' + durTxt(S.cfg.duracion_max) + ' · hasta ' + S.cfg.anticipacion_max_dias + ' días de anticipación' +
+      (S.feriados.length ? ' · Feriados próximos: ' + S.feriados.slice(0, 4).map(f => fechaCorta(f.fecha) + ' (' + f.descripcion + ')').join(', ') : '') + '.';
+    $('aDesde').value = S.hoy; $('aHasta').value = sumarDias(S.hoy, 30);
+
+    semanaRef = null; semanaDatos = null; misDatos = null; usuariosDatos = null;
+    limpiarForm(); mostrarFormulario(); subAdmin('reservas', true); mostrar('reservar');
+  }
+
+  function pintarPendientes(n) {
+    ['cntPend', 'cntPend2'].forEach(id => { $(id).textContent = n; $(id).style.display = n ? '' : 'none'; });
+  }
+
+  function mostrar(vista) {
+    document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('activa', b.dataset.vista === vista));
+    document.querySelectorAll('main > section').forEach(s => s.classList.toggle('visible', s.id === 'v-' + vista));
+    if (vista === 'calendario') cargarSemana(semanaRef || S.hoy);
+    if (vista === 'mis') cargarMis();
+    if (vista === 'admin') { if ($('admUsuarios').style.display === 'none') cargarAdmin(); else cargarUsuarios(); }
+  }
+
+  /* ---------------- Formulario de reserva ---------------- */
+  function poblarHoras() {
+    const ap = aMin(S.cfg.apertura), ci = aMin(S.cfg.cierre), p = S.cfg.paso;
+    let oi = '<option value="">Selecciona</option>', of = oi;
+    for (let t = ap; t <= ci; t += p) {
+      if (t + S.cfg.duracion_min <= ci) oi += '<option value="' + aHora(t) + '">' + aHora(t) + '</option>';
+      if (t > ap) of += '<option value="' + aHora(t) + '">' + aHora(t) + '</option>';
+    }
+    $('fInicio').innerHTML = oi; $('fFin').innerHTML = of;
+  }
+
+  function poblarDuraciones() {
+    const opciones = [30, 60, 90, 120, 180, 240].filter(d => d >= S.cfg.duracion_min && d <= S.cfg.duracion_max && d % S.cfg.paso === 0);
+    $('duraciones').innerHTML = opciones.map(d => '<button type="button" class="chip" data-d="' + d + '">' + durTxt(d) + '</button>').join('');
+  }
+
+  function leerForm() {
+    return {
+      sala: $('fSala').value, fecha: $('fFecha').value, hora_inicio: $('fInicio').value, hora_fin: $('fFin').value,
+      tema: $('fTema').value.trim(), asistentes: $('fAsistentes').value ? +$('fAsistentes').value : 0,
+      proyector: valorRadio('proyector'), laptops: valorRadio('laptops')
+    };
+  }
+  function valorRadio(nombre) {
+    const r = document.querySelector('input[name="' + nombre + '"]:checked');
+    return r ? r.value : '';
+  }
+
+  function mostrarEstado(tipo, html) {
+    const e = $('estado'); e.className = 'estado ' + tipo; e.innerHTML = html; e.style.display = html ? 'block' : 'none';
+  }
+
+  function programarVerificacion() {
+    verifOk = null; $('btnReservar').disabled = true;
+    const f = leerForm();
+    if (f.fecha && f.hora_inicio && f.hora_fin) mostrarEstado('info', 'Verificando disponibilidad…'); // evita dejar visible un resultado anterior
+    clearTimeout(verifTimer);
+    verifTimer = setTimeout(verificar, 300);
+  }
+
+  function verificar(silencioso) {
+    const f = leerForm();
+    if (!f.fecha || !f.hora_inicio || !f.hora_fin) {
+      mostrarEstado('info', 'Completa fecha, hora de inicio y hora de fin para ver la disponibilidad.');
+      return;
+    }
+    const feriado = S.feriados.filter(x => x.fecha === f.fecha)[0];
+    if (f.fecha < S.hoy) return mostrarEstado('err', 'La fecha no puede ser anterior a hoy.');
+    if (f.fecha > S.limite) return mostrarEstado('err', 'Solo se puede reservar con hasta ' + S.cfg.anticipacion_max_dias + ' días de anticipación.');
+    if (S.cfg.dias_habiles.indexOf(dow(f.fecha)) === -1) return mostrarEstado('err', 'El ' + DIAS[dow(f.fecha)] + ' no es día hábil para reservas.');
+    if (feriado) return mostrarEstado('err', 'El ' + fechaLarga(f.fecha) + ' es feriado (' + esc(feriado.descripcion) + ').');
+    if (aMin(f.hora_fin) <= aMin(f.hora_inicio)) return mostrarEstado('err', 'La hora de fin debe ser posterior a la de inicio.');
+    const dur = aMin(f.hora_fin) - aMin(f.hora_inicio);
+    if (dur < S.cfg.duracion_min) return mostrarEstado('err', 'La duración mínima es de ' + durTxt(S.cfg.duracion_min) + '.');
+    if (dur > S.cfg.duracion_max) return mostrarEstado('err', 'La duración máxima es de ' + durTxt(S.cfg.duracion_max) + '.');
+
+    const mi = ++verifSeq;
+    if (!silencioso) mostrarEstado('info', 'Verificando disponibilidad…');
+    api('apiVerificar', f).then(r => {
+      if (mi !== verifSeq) return; // llegó tarde: el usuario ya cambió el formulario
+      pintarResultado(r, f);
+    }).catch(e => { if (e && e.message) { if (e.message === 'sesion' || e.message === 'cambio') return; } mostrarEstado('err', 'No se pudo verificar la disponibilidad. Intenta de nuevo.'); console.error(e); });
+  }
+
+  function pintarResultado(r, f) {
+    const d = r.data || {};
+    verifOk = null; $('btnReservar').disabled = true;
+    if (r.codigo === 'DISPONIBLE') {
+      verifOk = { sala: d.sala };
+      $('btnReservar').disabled = false;
+      mostrarEstado(d.advertencia ? 'warn' : 'ok', '<b>✔ Disponible.</b> ' + esc(r.mensaje));
+    } else if (r.codigo === 'CONFLICTO_SALA') {
+      mostrarEstado('warn', '<b>Sala ocupada.</b> ' + esc(r.mensaje) +
+        '<div class="acciones"><button class="chip" id="usarAlt">Usar ' + esc(d.sala_alternativa) + '</button></div>' + bloquePrioridad(d.prioridad));
+      $('usarAlt').addEventListener('click', () => { $('fSala').value = d.sala_alternativa; programarVerificacion(); });
+      enlazarPrioridad(d.prioridad);
+    } else if (r.codigo === 'CONFLICTO_AMBAS') {
+      const sug = d.sugerencias || [];
+      mostrarEstado('err', '<b>Sin disponibilidad.</b> ' + esc(r.mensaje.split(' Horarios libres')[0]) +
+        (sug.length ? '<div style="margin-top:8px">Alternativas con la misma duración:</div><div class="acciones">' +
+          sug.map((s, i) => '<button class="chip" data-i="' + i + '">' + esc(s.sala) + ' · ' + fechaCorta(s.fecha) + ' · ' + s.hora_inicio + '–' + s.hora_fin + '</button>').join('') + '</div>' : '') +
+        bloquePrioridad(d.prioridad));
+      enlazarPrioridad(d.prioridad);
+      document.querySelectorAll('#estado button[data-i]').forEach(b => b.addEventListener('click', () => {
+        const s = sug[+b.dataset.i];
+        $('fSala').value = s.sala; $('fFecha').value = s.fecha; $('fInicio').value = s.hora_inicio; $('fFin').value = s.hora_fin;
+        programarVerificacion();
+      }));
+    } else {
+      mostrarEstado('err', esc(r.mensaje));
+    }
+  }
+
+  /** Para oficinas con prioridad: opción de ocupar una sala ya reservada. */
+  function bloquePrioridad(p) {
+    if (!p) return '';
+    if (!p.disponible) return '<div class="prio no">⭐ ' + esc(p.motivo) + '</div>';
+    const lista = p.desplazaria.map(x => esc(x.oficina) + ' (' + x.hora_inicio + '–' + x.hora_fin + ')').join(', ');
+    return '<div class="prio"><b>⭐ Tu oficina tiene prioridad.</b> Puedes reservar la ' + esc(p.sala) + ' de todos modos: se cancelará ' +
+      (p.desplazaria.length > 1 ? 'las reservas de ' : 'la reserva de ') + lista +
+      ' y se le avisará por correo con horarios alternativos.' +
+      '<div class="acciones"><button class="chip prio-btn" id="usarPrioridad">Reservar ' + esc(p.sala) + ' con prioridad</button></div></div>';
+  }
+  function enlazarPrioridad(p) {
+    const b = $('usarPrioridad');
+    if (b && p && p.disponible) b.addEventListener('click', () => confirmarReserva(p));
+  }
+
+  function confirmarReserva(prioridad) {
+    if (!prioridad && !verifOk) return;
+    const f = leerForm();
+    if (!f.proyector || !f.laptops) {
+      if (!f.proyector) $('segProyector').classList.add('falta');
+      if (!f.laptops) $('segLaptops').classList.add('falta');
+      aviso('Indica si se usará el proyector y si se usarán las laptops.');
+      return;
+    }
+    const sala = prioridad ? prioridad.sala : verifOk.sala;
+    const siNo = v => (v === 'SI' ? 'Sí' : 'No');
+    const cuerpo = '<table>' +
+      '<tr><td>Sala</td><td><b>' + esc(sala) + '</b></td></tr>' +
+      '<tr><td>Fecha</td><td><b>' + esc(fechaLarga(f.fecha)) + '</b></td></tr>' +
+      '<tr><td>Horario</td><td><b>' + f.hora_inicio + ' – ' + f.hora_fin + '</b></td></tr>' +
+      '<tr><td>Oficina</td><td><b>' + esc(S.usuario.oficina) + '</b></td></tr>' +
+      '<tr><td>Tema</td><td><b>' + esc(f.tema || 'Reunión de trabajo') + '</b></td></tr>' +
+      '<tr><td>Proyector</td><td><b>' + siNo(f.proyector) + '</b></td></tr>' +
+      '<tr><td>Laptops</td><td><b>' + siNo(f.laptops) + '</b></td></tr></table>' +
+      (prioridad
+        ? '<div class="aviso-prio"><b>Reserva con prioridad.</b> Se cancelará: ' +
+          prioridad.desplazaria.map(x => '<br>• ' + esc(x.oficina) + ' – ' + esc(x.responsable) + ' (' + x.hora_inicio + '–' + x.hora_fin + ', ' + esc(x.tema) + ')').join('') +
+          '<br>Se le notificará por correo, a su oficina y a la persona, con horarios disponibles para reprogramar.</div>' +
+          '<div class="campo"><label for="motivoPrio">Motivo (opcional, se incluirá en el aviso)</label><textarea id="motivoPrio" rows="2" maxlength="150"></textarea></div>'
+        : '') +
+      '<p class="ayuda" style="margin-top:10px">Se enviará la confirmación a tu correo y se avisará a los encargados de la sala.</p>';
+    dialogo(prioridad ? 'Confirmar reserva con prioridad' : 'Confirmar reserva', cuerpo, [
+      { texto: 'Volver', fn: cerrarDialogo },
+      { texto: prioridad ? 'Reservar con prioridad' : 'Confirmar reserva', clase: prioridad ? 'prio-btn' : 'primary', fn: btn => {
+        btn.disabled = true; btn.textContent = 'Reservando…';
+        f.sala = sala;
+        if (prioridad) { f.usar_prioridad = true; f.motivo_prioridad = ($('motivoPrio') || {}).value || ''; }
+        api('apiReservar', f).then(r => {
+          cerrarDialogo();
+          if (r.ok) return mostrarExito(r);
+          pintarResultado(r, f);
+        }).catch(e => { cerrarDialogo(); errorRed(e); });
+      } }
+    ]);
+  }
+
+  function mostrarExito(r) {
+    const x = r.data.reserva;
+    $('exCodigo').textContent = x.id_reserva;
+    $('exDetalle').innerHTML = '<b>' + esc(x.sala) + '</b> · ' + esc(fechaLarga(x.fecha)) + ' · ' + x.hora_inicio + '–' + x.hora_fin + '<br>' + esc(x.tema);
+    $('exCorreo').textContent = (r.data.correo_usuario ? 'Te enviamos la confirmación a ' + S.usuario.correo + '. ' : 'No se pudo enviar el correo de confirmación; guarda tu código. ') +
+      (r.data.correo_encargados ? 'Se avisó a los encargados de la sala. ' : '') +
+      ((r.data.desplazadas || []).length ? 'Se reasignó por prioridad la reserva de ' + r.data.desplazadas.map(x => x.oficina + ' (' + x.hora_inicio + '–' + x.hora_fin + ')').join(', ') + ' y se le avisó por correo.' : '');
+    $('formulario').style.display = 'none'; $('exito').style.display = 'block';
+    misDatos = null; semanaDatos = null;
+  }
+
+  function mostrarFormulario() { $('formulario').style.display = 'block'; $('exito').style.display = 'none'; }
+
+  function limpiarForm() {
+    ['fSala', 'fFecha', 'fInicio', 'fFin', 'fTema', 'fAsistentes'].forEach(id => { $(id).value = ''; });
+    document.querySelectorAll('.seg input').forEach(i => { i.checked = false; });
+    document.querySelectorAll('.seg').forEach(x => x.classList.remove('falta'));
+    verifOk = null; $('btnReservar').disabled = true; mostrarEstado('info', '');
+  }
+
+  /* ---------------- Calendario ---------------- */
+  function cargarSemana(ref) {
+    semanaRef = ref;
+    $('cal').innerHTML = '<div class="cargando">Cargando…</div>';
+    api('apiSemana', ref).then(r => {
+      if (!r.ok) { $('cal').innerHTML = '<div class="vacio">' + esc(r.mensaje) + '</div>'; return; }
+      semanaDatos = r.data; semanaRef = r.data.lunes; pintarSemana();
+    }).catch(errorRed);
+  }
+
+  function pintarSemana() {
+    const d = semanaDatos, hourPx = 48;
+    const ap = aMin(d.apertura), ci = aMin(d.cierre), horas = Math.ceil((ci - ap) / 60);
+    $('semTitulo').textContent = d.dias.length ? 'Semana del ' + d.dias[0].etiqueta + ' al ' + d.dias[d.dias.length - 1].etiqueta : '';
+    $('semIr').value = d.lunes;
+    let html = '<div class="regla"><div class="encreg"></div>';
+    for (let i = 0; i < horas; i++) html += '<div class="h">' + aHora(ap + i * 60) + '</div>';
+    html += '</div>';
+    d.dias.forEach(dia => {
+      html += '<div class="dia ' + (dia.fecha === S.hoy ? 'hoy' : '') + '">' +
+        '<div class="encdia"><b>' + esc(dia.etiqueta) + '</b><div class="carriles">' + d.salas.map(s => '<span>' + esc(s.sala) + '</span>').join('') + '</div></div>' +
+        '<div class="cuerpo ' + (dia.feriado ? 'feriado' : '') + '" style="height:' + (horas * hourPx) + 'px">' +
+        (dia.feriado ? '<div class="feriado-et">Feriado: ' + esc(dia.feriado) + '</div>' : '');
+      d.salas.forEach(s => {
+        html += '<div class="carril" data-fecha="' + dia.fecha + '" data-sala="' + esc(s.sala) + '">';
+        for (let i = 0; i < horas; i++) html += '<div class="franja"></div>';
+        d.reservas.filter(r => r.fecha === dia.fecha && r.sala === s.sala).forEach(r => {
+          const top = (aMin(r.hora_inicio) - ap) * hourPx / 60;
+          const alto = Math.max(18, (aMin(r.hora_fin) - aMin(r.hora_inicio)) * hourPx / 60 - 2);
+          html += '<div class="res ' + (r.propia ? 'propia' : '') + '" data-id="' + esc(r.id_reserva) + '" style="top:' + top + 'px;height:' + alto + 'px" title="' + esc(r.oficina + ' · ' + r.tema) + '">' +
+            '<b>' + r.hora_inicio + '–' + r.hora_fin + '</b>' + esc(r.oficina) + '</div>';
+        });
+        html += '</div>';
+      });
+      html += '</div></div>';
+    });
+    if (!d.dias.length) html += '<div class="vacio">No hay días hábiles configurados.</div>';
+    $('cal').innerHTML = html;
+  }
+
+  function clicCalendario(ev) {
+    const res = ev.target.closest('.res');
+    if (res) {
+      const r = semanaDatos.reservas.filter(x => x.id_reserva === res.dataset.id)[0];
+      if (r) detalleReserva(r);
+      return;
+    }
+    const carril = ev.target.closest('.carril');
+    if (!carril || carril.parentElement.classList.contains('feriado')) return;
+    const rect = carril.getBoundingClientRect();
+    const paso = S.cfg.paso, ap = aMin(semanaDatos.apertura), ci = aMin(semanaDatos.cierre);
+    let ini = ap + Math.floor((ev.clientY - rect.top) / 48 * 60 / paso) * paso;
+    ini = Math.max(ap, Math.min(ini, ci - S.cfg.duracion_min));
+    const fin = Math.min(ini + 60, ci);
+    limpiarForm();
+    $('fSala').value = carril.dataset.sala; $('fFecha').value = carril.dataset.fecha;
+    $('fInicio').value = aHora(ini); $('fFin').value = aHora(fin);
+    mostrarFormulario(); mostrar('reservar'); programarVerificacion();
+  }
+
+  /* ---------------- Detalle y cancelación ---------------- */
+  function detalleReserva(r) {
+    const filas = [['Código', r.id_reserva], ['Sala', r.sala], ['Fecha', fechaLarga(r.fecha)], ['Horario', r.hora_inicio + ' – ' + r.hora_fin],
+      ['Oficina', r.oficina], ['Tema', r.tema]];
+    if (r.responsable) filas.push(['Responsable', r.responsable]);
+    if (r.correo) filas.push(['Correo', r.correo]);
+    if (r.asistentes) filas.push(['Asistentes', r.asistentes]);
+    if (r.proyector) filas.push(['Proyector', r.proyector === 'SI' ? 'Sí' : 'No']);
+    if (r.laptops) filas.push(['Laptops', r.laptops === 'SI' ? 'Sí' : 'No']);
+    if (r.reemplaza_a) filas.push(['Con prioridad', 'Reemplazó a ' + r.reemplaza_a]);
+    filas.push(['Estado', r.estado]);
+    if (r.estado === 'CANCELADA') { filas.push(['Cancelada por', r.cancelado_por || '—']); filas.push(['Motivo', r.motivo_cancelacion || '—']); }
+    let cuerpo = '<table>' + filas.map(f => '<tr><td>' + esc(f[0]) + '</td><td><b>' + esc(f[1]) + '</b></td></tr>').join('') + '</table>';
+    const botones = [{ texto: 'Cerrar', fn: cerrarDialogo }];
+    if (r.puede_cancelar) {
+      cuerpo += '<div class="campo"><label for="motivo">Motivo de la cancelación (opcional)</label><input id="motivo" maxlength="120"></div>';
+      botones.unshift({ texto: 'Cancelar reserva', clase: 'danger', fn: btn => cancelar(r.id_reserva, btn) });
+    }
+    dialogo('Reserva ' + r.id_reserva, cuerpo, botones);
+  }
+
+  function cancelar(id, btn) {
+    btn.disabled = true; btn.textContent = 'Cancelando…';
+    const motivo = ($('motivo') || {}).value || '';
+    api('apiCancelar', id, motivo).then(r => {
+      cerrarDialogo();
+      aviso(r.ok ? 'Reserva ' + id + ' cancelada.' : r.mensaje);
+      semanaDatos = null; misDatos = null;
+      const vista = document.querySelector('main > section.visible').id;
+      if (vista === 'v-mis') cargarMis(); else if (vista === 'v-calendario') cargarSemana(semanaRef); else if (vista === 'v-admin') cargarAdmin();
+    }).catch(e => { cerrarDialogo(); errorRed(e); });
+  }
+
+  /* ---------------- Mis reservas ---------------- */
+  function cargarMis() {
+    api('apiMisReservas').then(r => {
+      if (!r.ok) { $('misProximas').innerHTML = '<div class="vacio">' + esc(r.mensaje) + '</div>'; return; }
+      misDatos = r.data;
+      const tarjeta = x => '<div class="card tarjeta"><div class="datos"><b>' + esc(x.sala) + ' · ' + esc(fechaLarga(x.fecha)) + ' · ' + x.hora_inicio + '–' + x.hora_fin + '</b>' +
+        '<div>' + esc(x.tema) + ' · <span style="font-family:monospace">' + esc(x.id_reserva) + '</span> ' +
+        (x.estado === 'CANCELADA' ? '<span class="etiqueta cancelada">Cancelada</span>' : '') + '</div></div>' +
+        '<div>' + (x.puede_cancelar ? '<button class="danger" data-c="' + esc(x.id_reserva) + '">Cancelar</button>' : '') + '</div></div>';
+      $('misProximas').innerHTML = misDatos.proximas.length ? misDatos.proximas.map(tarjeta).join('') :
+        '<div class="card vacio">No tienes reservas próximas.</div>';
+      $('misHistorial').innerHTML = misDatos.historial.length ? misDatos.historial.map(tarjeta).join('') :
+        '<div class="card vacio">Aún no hay historial.</div>';
+      document.querySelectorAll('#v-mis button[data-c]').forEach(b => b.addEventListener('click', () => {
+        const x = misDatos.proximas.filter(y => y.id_reserva === b.dataset.c)[0]; if (x) detalleReserva(x);
+      }));
+    }).catch(errorRed);
+  }
+
+  /* ---------------- Administración: reservas ---------------- */
+  function subAdmin(cual, sinCargar) {
+    $('subReservas').classList.toggle('activa', cual === 'reservas');
+    $('subUsuarios').classList.toggle('activa', cual === 'usuarios');
+    $('admReservas').style.display = cual === 'reservas' ? '' : 'none';
+    $('admUsuarios').style.display = cual === 'usuarios' ? '' : 'none';
+    if (sinCargar) return;
+    if (cual === 'reservas') cargarAdmin(); else cargarUsuarios();
+  }
+
+  function cargarAdmin() {
+    const filtros = { desde: $('aDesde').value, hasta: $('aHasta').value, sala: $('aSala').value, estado: $('aEstado').value };
+    $('aTabla').innerHTML = '<div class="cargando">Cargando…</div>';
+    api('apiAdminLista', filtros).then(r => {
+      if (!r.ok) { $('aTabla').innerHTML = '<div class="vacio">' + esc(r.mensaje) + '</div>'; return; }
+      const d = r.data, st = d.stats;
+      $('aDesde').value = d.desde; $('aHasta').value = d.hasta;
+      $('aStats').innerHTML =
+        '<div class="stat"><b>' + st.confirmadas + '</b>reservas confirmadas</div>' +
+        '<div class="stat"><b>' + st.canceladas + '</b>canceladas</div>' +
+        '<div class="stat"><b>' + st.horas_reservadas + ' h</b>reservadas</div>' +
+        '<div class="stat"><b>' + st.ocupacion_pct + '%</b>ocupación del periodo</div>' +
+        (st.top_oficinas.length ? '<div class="stat" style="flex:1"><b style="font-size:13px;margin-bottom:4px">Oficinas con más horas</b>' +
+          st.top_oficinas.map(o => esc(o.oficina) + ': ' + o.horas + ' h').join('<br>') + '</div>' : '');
+      if (!d.reservas.length) { $('aTabla').innerHTML = '<div class="vacio">No hay reservas con esos filtros.</div>'; return; }
+      $('aTabla').innerHTML = '<table><thead><tr><th>Fecha</th><th>Horario</th><th>Sala</th><th>Oficina</th><th>Responsable</th><th>Tema</th><th>Equipos</th><th>Estado</th><th></th></tr></thead><tbody>' +
+        d.reservas.map((x, i) => '<tr class="' + (x.estado === 'CANCELADA' ? 'cancelada' : '') + '"><td>' + esc(fechaCorta(x.fecha)) + '</td><td>' + x.hora_inicio + '–' + x.hora_fin + '</td><td>' + esc(x.sala) +
+          '</td><td>' + esc(x.oficina) + (x.reemplaza_a ? ' <span class="etiqueta prioridad" title="Reemplazó a ' + esc(x.reemplaza_a) + '">Prioridad</span>' : '') +
+          '</td><td>' + esc(x.responsable) + '</td><td>' + esc(x.tema) + '</td><td>' + equipos(x) + '</td><td>' +
+          (x.estado === 'CANCELADA' ? '<span class="etiqueta cancelada">Cancelada</span>' : '<span class="etiqueta ok">Confirmada</span>') + '</td>' +
+          '<td><button class="mini" data-i="' + i + '">Ver</button></td></tr>').join('') + '</tbody></table>' +
+        (d.truncado ? '<p class="ayuda">Se muestran las primeras 500 de ' + d.total + ' reservas; acota el rango de fechas.</p>' : '');
+      document.querySelectorAll('#aTabla button[data-i]').forEach(b => b.addEventListener('click', () => detalleReserva(d.reservas[+b.dataset.i])));
+    }).catch(errorRed);
+  }
+
+  function equipos(x) {
+    const e = [];
+    if (x.proyector === 'SI') e.push('Proyector');
+    if (x.laptops === 'SI') e.push('Laptops');
+    return e.length ? e.join(', ') : (x.proyector || x.laptops ? 'Ninguno' : '—');
+  }
+
+  /* ---------------- Administración: usuarios ---------------- */
+  const ESTADOS = { SI: ['Activo', 'ok'], NO: ['Inactivo', 'no'], PENDIENTE: ['Pendiente', 'pend'] };
+
+  function cargarUsuarios() {
+    $('uTabla').innerHTML = '<div class="cargando">Cargando…</div>';
+    api('apiAdminUsuarios').then(r => {
+      if (!r.ok) { $('uTabla').innerHTML = '<div class="vacio">' + esc(r.mensaje) + '</div>'; return; }
+      usuariosDatos = r.data.usuarios;
+      pintarPendientes(usuariosDatos.filter(u => u.estado === 'PENDIENTE').length);
+      $('uTabla').innerHTML = '<h2 style="margin-bottom:10px">Usuarios (' + usuariosDatos.length + ')</h2>' +
+        '<table><thead><tr><th>Nombre</th><th>Correo</th><th>Oficina</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead><tbody>' +
+        usuariosDatos.map((u, i) => {
+          const e = ESTADOS[u.estado] || ESTADOS.NO;
+          const acciones = u.estado === 'PENDIENTE'
+            ? '<button class="mini okb" data-a="aprobar" data-i="' + i + '">Aprobar</button><button class="mini" data-a="rechazar" data-i="' + i + '">Rechazar</button>'
+            : '<button class="mini" data-a="editar" data-i="' + i + '">Editar</button>' +
+              (u.soy_yo ? '' : '<button class="mini" data-a="clave" data-i="' + i + '">Contraseña</button>' +
+                '<button class="mini" data-a="' + (u.estado === 'SI' ? 'desactivar' : 'activar') + '" data-i="' + i + '">' + (u.estado === 'SI' ? 'Desactivar' : 'Activar') + '</button>');
+          return '<tr class="' + (u.estado === 'PENDIENTE' ? 'pendiente' : u.estado === 'NO' ? 'inactivo' : '') + '">' +
+            '<td><b>' + esc(u.nombre) + '</b>' + (u.soy_yo ? ' <span class="ayuda">(tú)</span>' : '') + '</td><td>' + esc(u.correo) + '</td><td>' + esc(u.oficina) + '</td>' +
+            '<td>' + (u.rol === 'ADMIN' ? '<span class="etiqueta admin">Admin</span>' : 'Usuario') + '</td>' +
+            '<td><span class="etiqueta ' + e[1] + '">' + e[0] + '</span>' + (u.debe_cambiar && u.estado === 'SI' ? '<div class="ayuda">Contraseña temporal</div>' : '') + '</td>' +
+            '<td>' + esc(u.ultimo_acceso ? String(u.ultimo_acceso).slice(0, 16) : '—') + '</td>' +
+            '<td><div class="acciones">' + acciones + '</div></td></tr>';
+        }).join('') + '</tbody></table>';
+      document.querySelectorAll('#uTabla button[data-a]').forEach(b => b.addEventListener('click', () => accionUsuario(b.dataset.a, usuariosDatos[+b.dataset.i])));
+    }).catch(errorRed);
+  }
+
+  function crearUsuario(ev) {
+    ev.preventDefault();
+    const d = { correo: $('nCorreo').value, contrasena: $('nClave').value, nombre: $('nNombre').value, rol: $('nRol').value, oficina: $('nOficina').value, enviar_correo: $('nEnviar').checked };
+    const err = reglaClave(d.contrasena);
+    if (err) return aviso(err);
+    const btn = $('btnCrearUsuario'); btn.disabled = true; btn.textContent = 'Creando…';
+    api('apiAdminCrearUsuario', d).then(r => {
+      btn.disabled = false; btn.textContent = 'Crear usuario';
+      if (!r.ok) return dialogo('No se pudo crear', '<p>' + esc(r.mensaje) + '</p>', [{ texto: 'Entendido', fn: cerrarDialogo }]);
+      const clave = d.contrasena;
+      $('fNuevoUsuario').reset(); $('nEnviar').checked = true; $('nOficina').value = '';
+      dialogo('Usuario creado', '<p>' + esc(r.mensaje) + '</p><table><tr><td>Correo</td><td><b>' + esc(d.correo.trim().toLowerCase()) + '</b></td></tr>' +
+        '<tr><td>Contraseña temporal</td><td><b style="font-family:monospace">' + esc(clave) + '</b></td></tr></table>' +
+        '<p class="ayuda">Deberá cambiarla al ingresar por primera vez.</p>', [{ texto: 'Listo', clase: 'primary', fn: cerrarDialogo }]);
+      cargarUsuarios();
+    }).catch(e => { btn.disabled = false; btn.textContent = 'Crear usuario'; errorRed(e); });
+  }
+
+  function guardarUsuario(correo, cambios, btn) {
+    if (btn) btn.disabled = true;
+    return api('apiAdminActualizarUsuario', correo, cambios).then(r => {
+      if (btn) btn.disabled = false;
+      if (!r.ok) { aviso(r.mensaje); return false; }
+      cerrarDialogo(); aviso(r.mensaje); cargarUsuarios(); return true;
+    }).catch(e => { if (btn) btn.disabled = false; errorRed(e); });
+  }
+
+  function accionUsuario(accion, u) {
+    if (accion === 'aprobar') return guardarUsuario(u.correo, { estado: 'SI' });
+    if (accion === 'activar') return guardarUsuario(u.correo, { estado: 'SI' });
+    if (accion === 'rechazar' || accion === 'desactivar') {
+      const txt = accion === 'rechazar' ? 'Rechazar la solicitud de ' : 'Desactivar la cuenta de ';
+      return dialogo(accion === 'rechazar' ? 'Rechazar solicitud' : 'Desactivar usuario',
+        '<p>' + txt + '<b>' + esc(u.nombre) + '</b> (' + esc(u.correo) + ')? No podrá ingresar al sistema. Sus reservas existentes se mantienen.</p>',
+        [{ texto: 'Volver', fn: cerrarDialogo }, { texto: accion === 'rechazar' ? 'Rechazar' : 'Desactivar', clase: 'danger', fn: b => guardarUsuario(u.correo, { estado: 'NO' }, b) }]);
+    }
+    if (accion === 'editar') {
+      const cuerpo = '<div class="campo"><label for="eNombre">Nombre completo</label><input id="eNombre" maxlength="120" value="' + esc(u.nombre) + '"></div>' +
+        '<div class="campo"><label for="eOficina">Oficina</label><select id="eOficina"></select></div>' +
+        '<div class="campo"><label for="eRol">Rol</label><select id="eRol"' + (u.soy_yo ? ' disabled' : '') + '><option value="USUARIO">Usuario</option><option value="ADMIN">Administrador</option></select></div>' +
+        '<p class="ayuda">Correo: ' + esc(u.correo) + ' (no se puede cambiar; si es necesario, crea un usuario nuevo y desactiva este).</p>';
+      dialogo('Editar usuario', cuerpo, [{ texto: 'Cancelar', fn: cerrarDialogo },
+        { texto: 'Guardar', clase: 'primary', fn: b => guardarUsuario(u.correo, { nombre: $('eNombre').value, oficina: $('eOficina').value, rol: $('eRol').value }, b) }]);
+      $('eRol').value = u.rol;
+      poblarOficinas('eOficina', S.oficinas.map(o => o.oficina), u.oficina);
+      return;
+    }
+    if (accion === 'clave') {
+      const cuerpo = '<p>Asigna una contraseña temporal a <b>' + esc(u.nombre) + '</b>. Deberá cambiarla al ingresar.</p>' +
+        '<div class="campo"><label for="rClave">Contraseña temporal</label><input id="rClave" value="' + generarClave() + '"></div>' +
+        '<label class="check" style="margin-top:10px"><input type="checkbox" id="rEnviar" checked> Enviársela por correo</label>';
+      dialogo('Restablecer contraseña', cuerpo, [{ texto: 'Cancelar', fn: cerrarDialogo }, { texto: 'Restablecer', clase: 'primary', fn: b => {
+        const clave = $('rClave').value, err = reglaClave(clave);
+        if (err) return aviso(err);
+        b.disabled = true;
+        api('apiAdminRestablecerContrasena', u.correo, clave, $('rEnviar').checked).then(r => {
+          b.disabled = false;
+          if (!r.ok) return aviso(r.mensaje);
+          dialogo('Contraseña restablecida', '<p>' + esc(r.mensaje) + '</p><table><tr><td>Correo</td><td><b>' + esc(u.correo) + '</b></td></tr><tr><td>Contraseña temporal</td><td><b style="font-family:monospace">' + esc(clave) + '</b></td></tr></table>',
+            [{ texto: 'Listo', clase: 'primary', fn: cerrarDialogo }]);
+          cargarUsuarios();
+        }).catch(e => { b.disabled = false; errorRed(e); });
+      } }]);
+    }
+  }
+</script>
+</body>
+</html>
