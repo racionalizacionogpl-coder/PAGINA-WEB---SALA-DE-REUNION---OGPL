@@ -1,0 +1,1753 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reserva de Salas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    /* =====================================================================
+       Tokens — Manual de Marca Gestión (DGP · OGPL-UNMSM)
+       60 % superficies claras · 30 % navy · 10 % teal
+       ===================================================================== */
+    :root {
+      --canvas:#F4F7FA; --surface:#FFFFFF; --mist:#E7F6F9; --line:#DCE4ED; --line-soft:#EAF0F5;
+      --ink:#0F2240; --ink-muted:#55657E;
+      --navy-900:#0B1D3A; --navy-700:#14315F; --on-navy:#FFFFFF; --on-navy-muted:#B8C6DB;
+      --teal-500:#1BB0C4; --teal-600:#0A7E90; --teal-700:#087686; --teal-100:#D3EFF4;
+      --primary:#14315F; --primary-hover:#0B1D3A; --on-primary:#FFFFFF;
+      --ok:#1A7049; --ok-bg:#E1F3EA; --warn:#96590A; --warn-bg:#FDF0D9;
+      --crit:#B8352C; --crit-bg:#FBE5E3; --idle:#5F6D84; --idle-bg:#EBEFF4;
+      --input:#FFFFFF; --input-line:#C5D1DE;
+      --r-s:6px; --r-m:10px; --r-l:18px;
+      --sombra:0 1px 2px rgba(11,29,58,.05), 0 6px 20px rgba(11,29,58,.06);
+      --f-display:'Montserrat', 'Segoe UI', Arial, sans-serif;
+      --f-body:'Source Sans 3', 'Segoe UI', Arial, sans-serif;
+      --f-mono:'IBM Plex Mono', Consolas, monospace;
+      --hour:48px;
+      color-scheme:light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --canvas:#0A1527; --surface:#10213B; --mist:#0E2A3B; --line:#22395B; --line-soft:#1A2F4E;
+        --ink:#E6EDF6; --ink-muted:#9DB0C8;
+        --navy-900:#060F20; --navy-700:#0F2547; --on-navy-muted:#9FB2CC;
+        --teal-500:#2CC3D6; --teal-600:#0A7E90; --teal-700:#5FD0DE; --teal-100:#0F3B47;
+        --primary:#2CC3D6; --primary-hover:#5FD0DE; --on-primary:#06142A;
+        --ok:#62CF9B; --ok-bg:#103426; --warn:#F2B661; --warn-bg:#3A2A10;
+        --crit:#F2948A; --crit-bg:#3E1A1A; --idle:#A7B4C8; --idle-bg:#1C2C46;
+        --input:#0C1A31; --input-line:#2B4469;
+        --sombra:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+        color-scheme:dark;
+      }
+    }
+
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; font-family:var(--f-body); font-size:15px; line-height:1.5; background:var(--canvas); color:var(--ink); -webkit-font-smoothing:antialiased; }
+    h1, h2, h3 { font-family:var(--f-display); color:var(--ink); line-height:1.2; }
+    input, select, textarea, button { font:inherit; color:inherit; }
+    svg.ico { width:1.25em; height:1.25em; fill:none; stroke:currentColor; stroke-width:1.75; stroke-linecap:round; stroke-linejoin:round; flex:none; vertical-align:-.25em; }
+    .mono { font-family:var(--f-mono); }
+    .rotulo { font-family:var(--f-display); font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--teal-700); margin:0 0 8px; }
+    .ayuda { font-size:13px; color:var(--ink-muted); margin-top:4px; }
+    .cargando, .vacio { color:var(--ink-muted); padding:28px 16px; text-align:center; }
+
+    .pantalla { display:none; }
+    .pantalla.visible { display:block; }
+
+    /* ---------- Botones (verbo primero; un solo primario por vista) ---------- */
+    button { cursor:pointer; border-radius:var(--r-s); border:1px solid var(--line); background:var(--surface); color:var(--ink); padding:9px 16px; font-weight:600; display:inline-flex; align-items:center; justify-content:center; gap:8px; transition:background .15s, border-color .15s, color .15s; }
+    button:hover { border-color:var(--navy-700); }
+    button:disabled { cursor:not-allowed; opacity:.55; }
+    button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline:3px solid var(--teal-500); outline-offset:2px; }
+    button.primary { background:var(--primary); border-color:var(--primary); color:var(--on-primary); }
+    button.primary:hover:not(:disabled) { background:var(--primary-hover); border-color:var(--primary-hover); }
+    button.secundario { background:transparent; border-color:var(--primary); color:var(--primary); }
+    button.secundario:hover { background:var(--mist); }
+    button.danger { background:var(--crit); border-color:var(--crit); color:#fff; }
+    button.okb { background:var(--ok); border-color:var(--ok); color:#fff; }
+    button.mini { padding:4px 10px; font-size:13px; }
+    button.chip { padding:5px 12px; font-size:13px; border-radius:999px; background:var(--surface); }
+    button.chip:hover { background:var(--mist); }
+    button.link { border:none; background:none; padding:0; color:var(--teal-700); text-decoration:underline; font-weight:600; }
+    button.prio-btn { background:var(--primary); border-color:var(--primary); color:var(--on-primary); }
+    button.icono { width:38px; height:38px; padding:0; border-radius:50%; }
+    .bloque { width:100%; }
+
+    /* ---------- Estados: palabra + color ---------- */
+    .pill, .etiqueta { display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700; line-height:1.4; white-space:nowrap; }
+    .pill::before, .etiqueta::before { content:''; width:7px; height:7px; border-radius:50%; background:currentColor; }
+    .pill.ok, .etiqueta.ok { background:var(--ok-bg); color:var(--ok); }
+    .pill.warn, .etiqueta.pend, .etiqueta.prioridad { background:var(--warn-bg); color:var(--warn); }
+    .pill.crit { background:var(--crit-bg); color:var(--crit); }
+    .pill.idle, .etiqueta.cancelada, .etiqueta.no { background:var(--idle-bg); color:var(--idle); }
+    .pill.info, .etiqueta.admin { background:var(--teal-100); color:var(--teal-700); }
+    .contador { display:inline-block; min-width:20px; padding:1px 6px; border-radius:999px; background:var(--crit); color:#fff; font-size:11px; font-weight:700; text-align:center; }
+
+    /* ---------- Formularios ---------- */
+    label { display:block; font-weight:600; font-size:14px; margin-bottom:6px; color:var(--ink); }
+    label .opc { font-weight:400; color:var(--ink-muted); }
+    label.check { display:flex; gap:8px; align-items:center; font-weight:400; }
+    label.check input { width:auto; accent-color:var(--teal-600); }
+    input, select, textarea { width:100%; padding:10px 12px; border:1px solid var(--input-line); border-radius:var(--r-s); background:var(--input); color:var(--ink); }
+    input:focus, select:focus, textarea:focus { border-color:var(--teal-600); outline:3px solid var(--teal-100); outline-offset:0; }
+    textarea { resize:vertical; }
+    .campo { margin-bottom:16px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; }
+    .grid2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:0 16px; }
+    .span2 { grid-column:span 2; }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .pw { position:relative; }
+    .pw input { padding-right:84px; }
+    .pw button { position:absolute; right:4px; top:4px; bottom:4px; border:none; background:none; color:var(--teal-700); font-size:13px; padding:0 10px; }
+    .seg { display:flex; border:1px solid var(--input-line); border-radius:var(--r-s); overflow:hidden; background:var(--input); }
+    .seg label { position:relative; flex:1; display:flex; align-items:center; justify-content:center; gap:6px; margin:0; padding:9px 10px; font-weight:600; cursor:pointer; color:var(--ink-muted); }
+    .seg label + label { border-left:1px solid var(--input-line); }
+    .seg label input { position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer; }
+    .seg label:has(input:checked) { background:var(--navy-700); color:#fff; }
+    .seg label:has(input:focus-visible) { outline:3px solid var(--teal-500); outline-offset:-3px; }
+    .seg.falta { border-color:var(--crit); box-shadow:0 0 0 3px var(--crit-bg); }
+
+    .msg-acceso { border-radius:var(--r-s); padding:10px 12px; margin-bottom:16px; font-size:14px; display:none; border-left:4px solid; }
+    .msg-acceso.err { display:block; background:var(--crit-bg); color:var(--crit); }
+    .msg-acceso.ok { display:block; background:var(--ok-bg); color:var(--ok); }
+    .msg-acceso.info { display:block; background:var(--teal-100); color:var(--teal-700); }
+
+    .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-m); padding:20px; box-shadow:var(--sombra); }
+    .card + .card { margin-top:16px; }
+
+    /* =====================================================================
+       Pantallas de acceso
+       ===================================================================== */
+    .pantalla.acceso.visible { display:grid; grid-template-columns:minmax(0, 1.05fr) minmax(0, 1fr); min-height:100vh; }
+    .acceso-marca { position:relative; overflow:hidden; color:var(--on-navy); padding:40px 48px; display:flex; flex-direction:column; justify-content:space-between; gap:32px;
+      background:linear-gradient(rgba(11,29,58,.82), rgba(11,29,58,.82)), var(--foto-acceso, none) center/cover, var(--navy-900); }
+    .acceso-marca::after { content:''; position:absolute; right:-120px; bottom:-140px; width:380px; height:380px; border-radius:50%; border:56px solid rgba(27,176,196,.16); pointer-events:none; }
+    .firma { display:flex; align-items:center; gap:12px; color:inherit; text-decoration:none; }
+    .firma img { width:44px; height:44px; border-radius:50%; }
+    .firma b { display:block; font-family:var(--f-display); font-size:15px; font-weight:700; letter-spacing:.01em; }
+    .firma small { display:block; font-size:12px; color:var(--on-navy-muted); letter-spacing:.08em; text-transform:uppercase; }
+    img.logo:not([src]) { visibility:hidden; }
+    .acceso-marca .rotulo { color:var(--teal-500); }
+    .acceso-marca h2 { color:#fff; font-size:clamp(28px, 3.4vw, 44px); font-weight:800; text-transform:uppercase; margin:0 0 16px; max-width:14ch; }
+    .acceso-marca p { color:var(--on-navy-muted); max-width:44ch; margin:0; font-size:16px; }
+    .acceso-marca ul { list-style:none; padding:0; margin:24px 0 0; display:grid; gap:10px; color:#fff; }
+    .acceso-marca li { display:flex; gap:10px; align-items:center; }
+    .acceso-marca li svg { color:var(--teal-500); }
+    .acceso-marca .txt-oficina { font-size:13px; color:var(--on-navy-muted); position:relative; z-index:1; }
+    .acceso-cuerpo { display:flex; align-items:center; justify-content:center; padding:40px 24px; }
+    .acceso-cuerpo .card { width:100%; max-width:430px; padding:32px; }
+    .acceso-cuerpo .card.ancha { max-width:560px; }
+    .acceso-cuerpo h1 { font-size:26px; margin:0 0 6px; }
+    .acceso-cuerpo .intro { color:var(--ink-muted); margin:0 0 24px; }
+    .separador { display:flex; align-items:center; gap:10px; color:var(--ink-muted); font-size:13px; margin:20px 0 12px; }
+    .separador::before, .separador::after { content:''; flex:1; height:1px; background:var(--line); }
+    .acceso .pie-acceso { margin-top:18px; text-align:center; font-size:14px; color:var(--ink-muted); }
+    @media (max-width:860px) {
+      .pantalla.acceso.visible { grid-template-columns:1fr; grid-template-rows:auto 1fr; }
+      .acceso-marca { padding:20px 16px 24px; gap:16px; }
+      .acceso-marca h2 { font-size:24px; max-width:none; margin-bottom:6px; }
+      .acceso-marca p, .acceso-marca ul, .acceso-marca .txt-oficina { display:none; }
+      .acceso-cuerpo { padding:20px 16px 32px; align-items:flex-start; }
+      .acceso-cuerpo .card { padding:22px 18px; }
+    }
+
+    /* =====================================================================
+       Barra superior
+       ===================================================================== */
+    .topbar { background:var(--navy-900); color:var(--on-navy); position:sticky; top:0; z-index:15; }
+    .topbar-in { max-width:1240px; margin:0 auto; padding:0 24px; height:64px; display:flex; align-items:center; gap:24px; }
+    .topbar .firma img { width:38px; height:38px; }
+    .topbar nav { display:flex; align-self:stretch; gap:4px; margin-right:auto; }
+    .topbar nav button { background:none; border:none; border-radius:0; color:var(--on-navy-muted); padding:0 14px; font-weight:600; position:relative; white-space:nowrap; }
+    .topbar nav button:hover { color:#fff; }
+    .topbar nav button.activa { color:#fff; }
+    .topbar nav button.activa::after { content:''; position:absolute; left:14px; right:14px; bottom:0; height:3px; background:var(--teal-500); border-radius:3px 3px 0 0; }
+    .topbar .usuario { display:flex; align-items:center; gap:10px; }
+    .btn-nueva { background:#fff; color:#0B1D3A; border-color:#fff; border-radius:999px; padding:8px 16px; }
+    .btn-nueva:hover { background:var(--teal-100); border-color:var(--teal-100); }
+    .avatar { width:36px; height:36px; border-radius:50%; background:var(--teal-600); color:#fff; display:grid; place-items:center; font-family:var(--f-display); font-weight:700; font-size:13px; flex:none; }
+    .quien { line-height:1.25; max-width:220px; }
+    .quien b { display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .quien span { display:block; font-size:12px; color:var(--on-navy-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .topbar button.icono { background:transparent; border-color:rgba(255,255,255,.22); color:#fff; }
+    .topbar button.icono:hover { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.4); }
+    @media (max-width:1180px) { .quien { display:none; } }
+    @media (max-width:960px) {
+      .topbar-in { flex-wrap:wrap; height:auto; padding:10px 16px 0; gap:10px 16px; }
+      .topbar .firma { margin-right:auto; }
+      .topbar nav { order:3; width:calc(100% + 32px); overflow-x:auto; height:44px; margin:0 -16px; padding:0 8px; scrollbar-width:none; }
+    }
+    @media (max-width:560px) { .btn-nueva span.txt { display:none; } .btn-nueva { padding:8px 10px; } .topbar .firma b { font-size:14px; } }
+
+    /* =====================================================================
+       Estructura de vistas
+       ===================================================================== */
+    main > section { display:none; }
+    main > section.visible { display:block; }
+    .envoltura { max-width:1240px; margin:0 auto; padding:0 24px; }
+    .franja { background:var(--mist); border-bottom:1px solid var(--line); }
+    .franja .envoltura { padding-top:32px; padding-bottom:28px; }
+    .franja h1 { font-size:clamp(24px, 3vw, 32px); font-weight:800; text-transform:uppercase; margin:0 0 6px; letter-spacing:.01em; }
+    .franja p.sub { margin:0; color:var(--ink-muted); max-width:70ch; }
+    .contenido { padding-top:28px; padding-bottom:56px; }
+    @media (max-width:560px) { .envoltura { padding:0 16px; } .franja .envoltura { padding-top:22px; padding-bottom:20px; } }
+
+    .titulo-seccion { text-align:center; margin:56px 0 28px; }
+    .titulo-seccion h2 { font-size:clamp(20px, 2.4vw, 26px); font-weight:800; text-transform:uppercase; margin:0; letter-spacing:.02em; }
+    .titulo-seccion p { color:var(--ink-muted); margin:8px 0 0; }
+    .subrayado { display:flex; justify-content:center; gap:6px; margin-top:12px; }
+    .subrayado i { display:block; height:4px; border-radius:2px; background:var(--teal-500); width:28px; }
+    .subrayado i + i { width:8px; }
+
+    /* ---------- Inicio: hero ---------- */
+    .hero { background:var(--mist); position:relative; overflow:hidden; }
+    .hero::before { content:''; position:absolute; left:-160px; top:-200px; width:520px; height:520px; border-radius:50%; background:radial-gradient(circle, rgba(27,176,196,.16), transparent 70%); pointer-events:none; }
+    .hero .envoltura { position:relative; display:grid; grid-template-columns:minmax(0, 1.1fr) minmax(0, 1fr); gap:40px; align-items:center; padding-top:48px; padding-bottom:88px; }
+    .hero h1 { font-size:clamp(30px, 4.2vw, 50px); font-weight:800; text-transform:uppercase; margin:0 0 16px; letter-spacing:.005em; }
+    .hero h1 em { font-style:normal; color:var(--teal-700); }
+    .hero .lead { font-size:17px; color:var(--ink-muted); margin:0 0 24px; max-width:52ch; }
+    .hero .acciones { display:flex; gap:10px; flex-wrap:wrap; }
+    .hero .acciones button { padding:12px 20px; }
+    .ahora { background:var(--navy-900); color:#fff; border-radius:var(--r-l); padding:24px; position:relative; overflow:hidden; box-shadow:0 18px 40px rgba(11,29,58,.25); }
+    .ahora::after { content:''; position:absolute; right:-70px; top:-70px; width:200px; height:200px; border-radius:50%; border:34px solid rgba(27,176,196,.18); }
+    .ahora h3 { color:#fff; font-size:13px; letter-spacing:.12em; text-transform:uppercase; margin:0 0 4px; }
+    .ahora .cuando { color:var(--on-navy-muted); font-size:14px; margin:0 0 18px; position:relative; z-index:1; }
+    .ahora-fila { display:flex; align-items:center; gap:14px; padding:14px 0; border-top:1px solid rgba(255,255,255,.12); position:relative; z-index:1; }
+    .ahora-fila .mini-foto { width:56px; height:56px; border-radius:var(--r-s); background:var(--navy-700) center/cover; flex:none; display:grid; place-items:center; color:var(--on-navy-muted); }
+    .ahora-fila b { display:block; font-family:var(--f-display); font-size:15px; }
+    .ahora-fila .det { font-size:13px; color:var(--on-navy-muted); }
+    .ahora-fila .pill { margin-left:auto; }
+    @media (max-width:900px) { .hero .envoltura { grid-template-columns:1fr; gap:28px; padding-top:32px; padding-bottom:76px; } }
+
+    /* ---------- Inicio: indicadores ---------- */
+    .kpis { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:2px; margin-top:-44px; position:relative; z-index:2; border-radius:var(--r-m); overflow:hidden; box-shadow:0 12px 30px rgba(10,126,144,.22); }
+    .kpi { background:var(--teal-600); color:#fff; padding:20px 20px 18px; display:flex; flex-direction:column; gap:4px; }
+    .kpi:nth-child(even) { background:#0B8A9D; }
+    .kpi b { font-family:var(--f-display); font-size:30px; font-weight:800; line-height:1.1; }
+    .kpi span { font-size:13px; color:#E3F6F9; }
+    @media (max-width:900px) { .kpis { grid-template-columns:repeat(2, minmax(0, 1fr)); } .kpi:last-child { grid-column:span 2; } }
+
+    /* ---------- Inicio: tarjetas de sala ---------- */
+    .salas-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(340px, 1fr)); gap:24px; }
+    @media (max-width:420px) { .salas-grid { grid-template-columns:1fr; } }
+    .sala-card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); overflow:hidden; box-shadow:var(--sombra); display:flex; flex-direction:column; }
+    .carrusel { position:relative; aspect-ratio:16/10; background:var(--navy-700); overflow:hidden; }
+    .carrusel .pista { display:flex; height:100%; transition:transform .45s ease; }
+    .carrusel img { width:100%; height:100%; object-fit:cover; flex:none; display:block; }
+    .carrusel .sin-foto { width:100%; height:100%; display:grid; place-items:center; color:var(--on-navy-muted); font-size:48px; }
+    .carrusel::after { content:''; position:absolute; inset:auto 0 0 0; height:42%; background:linear-gradient(transparent, rgba(11,29,58,.7)); pointer-events:none; }
+    .carrusel .pill { position:absolute; left:14px; top:14px; z-index:2; box-shadow:0 2px 8px rgba(0,0,0,.18); }
+    .carrusel .flecha { position:absolute; top:50%; transform:translateY(-50%); z-index:2; width:38px; height:38px; padding:0; border-radius:50%; background:rgba(255,255,255,.92); border:none; color:#0B1D3A; opacity:0; transition:opacity .2s; }
+    .carrusel:hover .flecha, .carrusel .flecha:focus-visible { opacity:1; }
+    .carrusel .flecha.izq { left:12px; } .carrusel .flecha.der { right:12px; }
+    @media (hover:none) { .carrusel .flecha { opacity:1; } }
+    .carrusel .puntos { position:absolute; bottom:12px; left:0; right:0; display:flex; justify-content:center; gap:6px; z-index:2; }
+    .carrusel .puntos button { width:8px; height:8px; padding:0; border:none; border-radius:4px; background:rgba(255,255,255,.55); transition:width .2s, background .2s; }
+    .carrusel .puntos button.activo { width:22px; background:#fff; }
+    .carrusel .nombre-foto { position:absolute; left:16px; bottom:28px; z-index:2; color:#fff; font-family:var(--f-display); font-weight:800; font-size:22px; text-transform:uppercase; letter-spacing:.02em; }
+    .sala-cuerpo { padding:18px 20px 20px; display:flex; flex-direction:column; gap:16px; flex:1; }
+    .sala-datos { display:flex; flex-wrap:wrap; gap:6px 18px; color:var(--ink-muted); font-size:14px; }
+    .sala-datos span { display:inline-flex; gap:6px; align-items:center; }
+    .sala-datos svg { color:var(--teal-700); }
+    .agenda-tit { display:flex; justify-content:space-between; align-items:baseline; font-size:13px; color:var(--ink-muted); margin-bottom:8px; }
+    .agenda-tit b { font-family:var(--f-display); color:var(--ink); font-size:12px; letter-spacing:.1em; text-transform:uppercase; }
+    .barra-dia { position:relative; height:12px; border-radius:6px; background:var(--line-soft); border:1px solid var(--line); }
+    .barra-dia .seg-ocupado { position:absolute; top:-1px; bottom:-1px; background:var(--navy-700); border-radius:4px; }
+    .barra-dia .seg-ocupado.propia { background:var(--teal-500); }
+    .barra-dia .marca-ahora { position:absolute; top:-6px; bottom:-6px; width:2px; background:var(--crit); border-radius:1px; }
+    .barra-horas { display:flex; justify-content:space-between; font-size:11px; color:var(--ink-muted); margin-top:4px; font-family:var(--f-mono); }
+    .lista-dia { list-style:none; margin:0; padding:0; display:grid; gap:6px; font-size:14px; }
+    .lista-dia li { display:flex; gap:10px; align-items:center; padding:7px 10px; border-radius:var(--r-s); background:var(--canvas); }
+    .lista-dia li .mono { font-size:13px; color:var(--ink); white-space:nowrap; }
+    .lista-dia li.propia { background:var(--teal-100); }
+    .lista-dia li .of { color:var(--ink-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sala-pie { margin-top:auto; display:flex; gap:10px; }
+    .sala-pie button { flex:1; }
+
+    /* ---------- Inicio: cuenta regresiva ---------- */
+    .regresiva { margin:56px 0 0; background:var(--navy-900); color:#fff; border-radius:var(--r-l); padding:36px 40px; position:relative; overflow:hidden; display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:24px 40px; align-items:center; }
+    .regresiva::before { content:''; position:absolute; left:-90px; bottom:-120px; width:300px; height:300px; border-radius:50%; background:radial-gradient(circle, rgba(27,176,196,.28), transparent 70%); }
+    .regresiva::after { content:''; position:absolute; right:-60px; top:-90px; width:220px; height:220px; border-radius:50%; border:30px solid rgba(27,176,196,.12); }
+    .regresiva > * { position:relative; z-index:1; }
+    .regresiva .rotulo { color:var(--teal-500); }
+    .regresiva h3 { color:#fff; font-size:clamp(20px, 2.4vw, 26px); text-transform:uppercase; margin:0 0 8px; font-weight:800; }
+    .regresiva p { color:var(--on-navy-muted); margin:0; }
+    .regresiva .detalle { display:flex; flex-wrap:wrap; gap:6px 18px; margin-top:12px; color:#fff; font-size:14px; }
+    .regresiva .detalle span { display:inline-flex; gap:6px; align-items:center; }
+    .regresiva .detalle svg { color:var(--teal-500); }
+    .circulos { display:flex; gap:14px; }
+    .circulo { width:96px; height:96px; border-radius:50%; border:3px solid var(--teal-500); display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(255,255,255,.04); }
+    .circulo b { font-family:var(--f-display); font-size:30px; font-weight:800; line-height:1; font-variant-numeric:tabular-nums; }
+    .circulo span { font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--on-navy-muted); margin-top:4px; }
+    .regresiva .btn-nueva { margin-top:16px; }
+    @media (max-width:900px) { .regresiva { grid-template-columns:1fr; padding:28px 22px; } .circulos { gap:8px; } .circulo { width:64px; height:64px; border-width:2px; } .circulo b { font-size:22px; } .circulo span { font-size:10px; } }
+
+    /* ---------- Reservar ---------- */
+    .reserva-grid { display:grid; grid-template-columns:minmax(0, 1fr) 360px; gap:24px; align-items:start; }
+    @media (max-width:980px) { .reserva-grid { grid-template-columns:1fr; } }
+    .paso { padding:4px 0 20px; }
+    .paso + .paso { border-top:1px solid var(--line-soft); padding-top:22px; }
+    .paso-tit { display:flex; align-items:center; gap:12px; margin:0 0 16px; font-size:16px; font-weight:700; }
+    .paso-tit .n { width:28px; height:28px; border-radius:50%; background:var(--navy-700); color:#fff; display:grid; place-items:center; font-size:13px; font-family:var(--f-display); flex:none; }
+    .selector-salas { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:12px; }
+    .sala-opcion { flex-direction:column; align-items:stretch; padding:0; text-align:left; border:2px solid var(--line); border-radius:var(--r-m); overflow:hidden; background:var(--surface); font-weight:400; gap:0; position:relative; }
+    .sala-opcion:hover { border-color:var(--teal-600); }
+    .sala-opcion .mini { height:96px; background:var(--navy-700) center/cover; display:grid; place-items:center; color:var(--on-navy-muted); font-size:30px; }
+    .sala-opcion .mini.cualquiera { background:var(--mist); color:var(--teal-700); }
+    .sala-opcion .txt { padding:10px 12px; }
+    .sala-opcion b { display:block; font-family:var(--f-display); font-size:14px; }
+    .sala-opcion small { color:var(--ink-muted); font-size:13px; }
+    .sala-opcion .marca-sel { position:absolute; top:8px; right:8px; width:26px; height:26px; border-radius:50%; background:var(--teal-600); color:#fff; display:none; place-items:center; }
+    .sala-opcion.activa { border-color:var(--teal-600); box-shadow:0 0 0 3px var(--teal-100); }
+    .sala-opcion.activa .marca-sel { display:grid; }
+    .resumen { position:sticky; top:84px; }
+    .resumen .card { padding:0; overflow:hidden; }
+    .resumen-cab { background:var(--navy-900); color:#fff; padding:16px 20px; border-bottom:3px solid var(--teal-500); }
+    .resumen-cab h3 { color:#fff; font-size:13px; letter-spacing:.12em; text-transform:uppercase; margin:0; }
+    .resumen-cuerpo { padding:18px 20px 20px; }
+    .solicitante { display:grid; gap:2px; font-size:14px; padding-bottom:14px; border-bottom:1px solid var(--line-soft); margin-bottom:14px; }
+    .solicitante span { color:var(--ink-muted); }
+    .solicitante .pill { margin-top:6px; justify-self:start; }
+    .res-sel .foto { height:120px; border-radius:var(--r-s); background:var(--mist) center/cover; margin-bottom:12px; display:grid; place-items:center; color:var(--teal-700); font-size:32px; }
+    dl.datos { display:grid; grid-template-columns:auto 1fr; gap:6px 14px; margin:0; font-size:14px; }
+    dl.datos dt { color:var(--ink-muted); }
+    dl.datos dd { margin:0; font-weight:600; text-align:right; }
+    dl.datos dd.pend { color:var(--ink-muted); font-weight:400; }
+    .resumen .acciones-res { display:grid; gap:8px; margin-top:16px; }
+    .resumen .acciones-res button { padding:12px; }
+    .estado { border-radius:var(--r-s); padding:12px 14px; margin-top:16px; border-left:4px solid; line-height:1.5; font-size:14px; }
+    .estado.ok { background:var(--ok-bg); color:var(--ok); }
+    .estado.warn { background:var(--warn-bg); color:var(--warn); }
+    .estado.err { background:var(--crit-bg); color:var(--crit); }
+    .estado.info { background:var(--teal-100); color:var(--teal-700); }
+    .estado .acciones { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .estado button.chip { color:var(--ink); }
+    .prio { margin-top:12px; padding:12px; border-radius:var(--r-s); background:var(--surface); border:1px dashed var(--warn); color:var(--ink); }
+    .prio.no { border-color:var(--line); color:var(--ink-muted); }
+    .prio svg { color:var(--warn); }
+    .aviso-prio { background:var(--warn-bg); color:var(--warn); border-left:4px solid var(--warn); border-radius:var(--r-s); padding:10px 12px; margin-top:12px; font-size:14px; }
+    .reglas { margin-top:16px; font-size:13px; color:var(--ink-muted); display:flex; gap:8px; }
+    .reglas svg { color:var(--teal-700); margin-top:2px; }
+    .exito { text-align:center; padding:48px 24px; max-width:640px; margin:0 auto; }
+    .exito .check { width:72px; height:72px; border-radius:50%; background:var(--ok-bg); color:var(--ok); display:grid; place-items:center; margin:0 auto 14px; font-size:34px; }
+    .exito h2 { text-transform:uppercase; font-weight:800; margin:0 0 6px; }
+    .exito .codigo { font-family:var(--f-mono); font-size:26px; color:var(--teal-700); letter-spacing:.06em; margin:8px 0; }
+    .exito .acciones { margin-top:20px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+
+    /* ---------- Calendario ---------- */
+    .barra { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:16px; }
+    .barra .semana { font-family:var(--f-display); font-weight:700; margin:0 8px; }
+    .barra input[type=date] { width:auto; }
+    .barra .leyenda { margin-left:auto; display:flex; gap:14px; font-size:13px; color:var(--ink-muted); align-items:center; flex-wrap:wrap; }
+    .muestra { display:inline-block; width:14px; height:14px; border-radius:3px; vertical-align:-2px; margin-right:6px; }
+    .scroll { overflow-x:auto; }
+    .cal { display:flex; min-width:760px; background:var(--surface); border:1px solid var(--line); border-radius:var(--r-m); overflow:hidden; }
+    .regla { width:56px; flex:none; border-right:1px solid var(--line); }
+    .regla .h { height:var(--hour); font-size:11px; color:var(--ink-muted); text-align:right; padding:2px 8px 0 0; border-top:1px solid var(--line-soft); font-family:var(--f-mono); }
+    .encreg, .encdia { height:58px; border-bottom:1px solid var(--line); padding:8px; font-size:13px; }
+    .encdia b { display:block; font-family:var(--f-display); font-size:13px; text-transform:capitalize; }
+    .encdia .carriles { display:flex; font-size:11px; color:var(--ink-muted); margin-top:4px; }
+    .encdia .carriles span { flex:1; text-align:center; }
+    .dia { flex:1; border-right:1px solid var(--line); min-width:130px; }
+    .dia:last-child { border-right:none; }
+    .dia.hoy .encdia { background:var(--mist); box-shadow:inset 0 3px 0 var(--teal-500); }
+    .cuerpo { position:relative; display:flex; }
+    .cuerpo.feriado { background:repeating-linear-gradient(45deg, var(--canvas), var(--canvas) 8px, var(--line-soft) 8px, var(--line-soft) 16px); }
+    .carril { flex:1; position:relative; border-left:1px dashed var(--line-soft); cursor:pointer; }
+    .carril:first-child { border-left:none; }
+    .cuerpo.feriado .carril { cursor:not-allowed; }
+    .carril:hover .franja-h { background:rgba(27,176,196,.06); }
+    .franja-h { height:var(--hour); border-top:1px solid var(--line-soft); }
+    .res { position:absolute; left:3px; right:3px; border-radius:var(--r-s); padding:3px 6px; font-size:11px; overflow:hidden; cursor:pointer; background:var(--idle-bg); border-left:3px solid var(--navy-700); color:var(--ink); }
+    .res.propia { background:var(--teal-100); border-left-color:var(--teal-600); }
+    .res b { display:block; font-family:var(--f-mono); font-weight:500; }
+    .feriado-et { position:absolute; top:8px; left:6px; right:6px; font-size:11px; color:var(--ink-muted); text-align:center; pointer-events:none; }
+
+    /* ---------- Mis reservas ---------- */
+    .bloque-tit { font-size:14px; letter-spacing:.1em; text-transform:uppercase; margin:0 0 12px; font-weight:800; }
+    .tarjeta { display:flex; flex-wrap:wrap; gap:12px 16px; align-items:center; justify-content:space-between; padding:16px 20px; border-left:4px solid var(--teal-600); }
+    .tarjeta.cancelada { border-left-color:var(--line); opacity:.85; }
+    .tarjeta .datos b { font-family:var(--f-display); font-size:15px; }
+    .tarjeta .datos div { color:var(--ink-muted); margin-top:4px; display:flex; flex-wrap:wrap; gap:6px 12px; align-items:center; }
+
+    /* ---------- Administración ---------- */
+    .subnav { display:flex; gap:8px; margin-bottom:20px; }
+    .subnav button.activa { background:var(--navy-700); border-color:var(--navy-700); color:#fff; }
+    .stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px; margin:16px 0; }
+    .stat { background:var(--surface); border:1px solid var(--line); border-top:4px solid var(--teal-600); border-radius:var(--r-m); padding:14px 16px; font-size:13px; color:var(--ink-muted); }
+    .stat b { display:block; font-family:var(--f-display); font-size:24px; color:var(--ink); }
+    .stat.ancha { grid-column:span 2; }
+    table { border-collapse:collapse; width:100%; font-size:14px; }
+    th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line-soft); vertical-align:top; }
+    th { font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-muted); background:var(--canvas); font-weight:700; }
+    tr.cancelada td, tr.inactivo td { color:var(--ink-muted); }
+    tr.pendiente td { background:var(--warn-bg); }
+    td .acciones { display:flex; gap:6px; flex-wrap:wrap; }
+    .card.tabla { padding:0; }
+    .card.tabla h2 { padding:16px 16px 0; font-size:16px; }
+
+    /* ---------- Pie de página ---------- */
+    .pie { background:var(--navy-900); color:var(--on-navy-muted); margin-top:64px; position:relative; }
+    .pie::before { content:''; display:block; height:4px; background:var(--teal-500); }
+    .pie-grid { display:grid; grid-template-columns:1.4fr 1fr 1fr 1fr; gap:32px; padding-top:40px; padding-bottom:40px; }
+    .pie h4 { color:#fff; font-family:var(--f-display); font-size:12px; letter-spacing:.14em; text-transform:uppercase; margin:0 0 12px; }
+    .pie p, .pie li { font-size:14px; margin:0 0 6px; }
+    .pie ul { list-style:none; margin:0; padding:0; }
+    .pie .firma { color:#fff; margin-bottom:14px; }
+    .pie-base { border-top:1px solid rgba(255,255,255,.1); font-size:13px; padding:16px 0; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    #btnArriba { position:absolute; right:24px; top:-24px; width:48px; height:48px; border-radius:50%; background:var(--teal-600); border:4px solid var(--canvas); color:#fff; padding:0; }
+    #btnArriba:hover { background:var(--teal-700); }
+    @media (max-width:900px) { .pie-grid { grid-template-columns:1fr 1fr; } }
+    @media (max-width:560px) { .pie-grid { grid-template-columns:1fr; gap:20px; } }
+
+    /* ---------- Diálogo y aviso ---------- */
+    #aviso { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--navy-900); color:#fff; padding:12px 20px; border-radius:var(--r-m); border-left:4px solid var(--teal-500); max-width:90vw; opacity:0; transition:opacity .25s; pointer-events:none; z-index:30; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+    #aviso.ver { opacity:1; }
+    dialog { border:none; border-radius:var(--r-m); padding:0; width:min(500px, 94vw); box-shadow:0 20px 60px rgba(11,29,58,.35); background:var(--surface); color:var(--ink); }
+    dialog::backdrop { background:rgba(11,29,58,.5); }
+    dialog .dh { background:var(--navy-900); color:#fff; padding:14px 18px; font-family:var(--f-display); font-weight:700; border-bottom:3px solid var(--teal-500); }
+    dialog .db { padding:16px 18px; font-size:15px; }
+    dialog .db table td { border:none; padding:4px 10px 4px 0; }
+    dialog .db table td:first-child { color:var(--ink-muted); width:120px; }
+    dialog .db .campo { margin-top:12px; margin-bottom:0; }
+    dialog .df { padding:8px 18px 18px; display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+    @media (max-width:560px) { .span2 { grid-column:span 1; } .stat.ancha { grid-column:auto; } }
+  </style>
+</head>
+<body>
+
+  <!-- Panel de marca de las pantallas de acceso (se clona en cada una) -->
+  <template id="tplMarca">
+    <aside class="acceso-marca">
+      <div class="firma">
+        <img class="logo" alt="Escudo de la UNMSM">
+        <div><b>Oficina General de Planificación</b><small>OGPL · UNMSM</small></div>
+      </div>
+      <div style="position:relative;z-index:1">
+        <p class="rotulo">Reserva de salas</p>
+        <h2>Reserva tu sala en tiempo real</h2>
+        <p>Consulta qué salas están libres, elige tu horario y recibe la confirmación en tu correo.</p>
+        <ul>
+          <li><span data-ico="check"></span>Disponibilidad al instante</li>
+          <li><span data-ico="calendario"></span>Calendario semanal de ocupación</li>
+          <li><span data-ico="correo"></span>Avisos por correo a los encargados</li>
+        </ul>
+      </div>
+      <div class="txt-oficina"></div>
+    </aside>
+  </template>
+
+  <!-- ================= PANTALLA: INGRESO ================= -->
+  <div id="p-login" class="pantalla acceso">
+    <div class="acceso-cuerpo">
+      <div class="card">
+        <p class="rotulo">Acceso</p>
+        <h1>Ingresa al sistema</h1>
+        <p class="intro">Usa tu correo institucional y tu contraseña.</p>
+        <form id="fLogin" autocomplete="on">
+          <div id="loginMsg" class="msg-acceso"></div>
+          <div class="campo">
+            <label for="lCorreo">Correo</label>
+            <input type="email" id="lCorreo" autocomplete="username" required placeholder="usuario@unmsm.edu.pe">
+          </div>
+          <div class="campo">
+            <label for="lClave">Contraseña</label>
+            <div class="pw"><input type="password" id="lClave" autocomplete="current-password" required><button type="button" data-ver="lClave">Mostrar</button></div>
+          </div>
+          <button type="submit" class="primary bloque" id="btnLogin">Ingresar al sistema</button>
+        </form>
+        <div id="lnkSolicitud" style="display:none">
+          <div class="separador">¿No tienes cuenta?</div>
+          <button type="button" class="secundario bloque" id="irSolicitud">Crear una cuenta</button>
+        </div>
+        <div class="pie-acceso">¿Olvidaste tu contraseña? Pide a un administrador que la restablezca.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= PANTALLA: CREAR CUENTA ================= -->
+  <div id="p-solicitud" class="pantalla acceso">
+    <div class="acceso-cuerpo">
+      <div class="card ancha">
+        <p class="rotulo">Registro</p>
+        <h1>Crea tu cuenta</h1>
+        <p class="intro" id="registroIntro">Completa tus datos para registrarte.</p>
+        <form id="fSolicitud">
+          <div id="solMsg" class="msg-acceso"></div>
+          <div class="grid2">
+            <div class="campo"><label for="sNombre">Nombre completo</label><input id="sNombre" required maxlength="120" placeholder="Ej. Juan Pérez García"></div>
+            <div class="campo"><label for="sOficina">Oficina</label><select id="sOficina" required></select></div>
+            <div class="campo span2"><label for="sCorreo">Correo</label><input type="email" id="sCorreo" required autocomplete="email" placeholder="usuario@unmsm.edu.pe"><div class="ayuda" id="registroDominios"></div></div>
+            <div class="campo"><label for="sClave">Contraseña</label><div class="pw"><input type="password" id="sClave" required autocomplete="new-password"><button type="button" data-ver="sClave">Mostrar</button></div><div class="ayuda">Mínimo 8 caracteres, con letras y números.</div></div>
+            <div class="campo"><label for="sClave2">Repite la contraseña</label><input type="password" id="sClave2" required autocomplete="new-password"></div>
+          </div>
+          <button type="submit" class="primary bloque" id="btnSolicitar">Crear cuenta</button>
+        </form>
+        <div class="pie-acceso"><button class="link" id="volverLogin">Volver al ingreso</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= PANTALLA: CAMBIAR CONTRASEÑA ================= -->
+  <div id="p-cambio" class="pantalla acceso">
+    <div class="acceso-cuerpo">
+      <div class="card">
+        <p class="rotulo">Seguridad</p>
+        <h1>Cambia tu contraseña</h1>
+        <p class="intro" id="cambioIntro">Elige una contraseña nueva.</p>
+        <form id="fCambio">
+          <div id="cambioMsg" class="msg-acceso"></div>
+          <div class="campo"><label for="cActual">Contraseña actual</label><input type="password" id="cActual" required autocomplete="current-password"></div>
+          <div class="campo"><label for="cNueva">Contraseña nueva</label><div class="pw"><input type="password" id="cNueva" required autocomplete="new-password"><button type="button" data-ver="cNueva">Mostrar</button></div><div class="ayuda">Mínimo 8 caracteres, con letras y números.</div></div>
+          <div class="campo"><label for="cNueva2">Repite la contraseña nueva</label><input type="password" id="cNueva2" required autocomplete="new-password"></div>
+          <button type="submit" class="primary bloque" id="btnCambiar">Guardar contraseña</button>
+        </form>
+        <div class="pie-acceso"><span id="volverCambioWrap"><button class="link" id="cancelarCambio">Volver</button> · </span><button class="link" id="salirCambio">Cerrar sesión</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= PANTALLA: CARGANDO ================= -->
+  <div id="p-cargando" class="pantalla"><div class="cargando" style="padding-top:140px">Cargando…</div></div>
+
+  <!-- ================= PANTALLA: APLICACIÓN ================= -->
+  <div id="p-app" class="pantalla">
+    <header class="topbar">
+      <div class="topbar-in">
+        <a href="#" class="firma" id="irInicio" title="Ir al inicio">
+          <img class="logo" alt="Escudo de la UNMSM">
+          <div><b>Reserva de Salas</b><small>OGPL · UNMSM</small></div>
+        </a>
+        <nav id="tabs" aria-label="Secciones">
+          <button data-vista="inicio" class="activa">Inicio</button>
+          <button data-vista="reservar">Reservar</button>
+          <button data-vista="calendario">Calendario</button>
+          <button data-vista="mis">Mis reservas</button>
+          <button data-vista="admin" id="tabAdmin" style="display:none">Administración <span class="contador" id="cntPend" style="display:none"></span></button>
+        </nav>
+        <div class="usuario">
+          <button class="btn-nueva" id="btnNuevaTop"><span data-ico="mas"></span><span class="txt">Nueva reserva</span></button>
+          <div class="avatar" id="uAvatar" aria-hidden="true"></div>
+          <div class="quien"><b id="uNombre"></b><span id="uOficina"></span></div>
+          <button class="icono" id="btnMiClave" title="Cambiar contraseña" aria-label="Cambiar contraseña"><span data-ico="clave"></span></button>
+          <button class="icono" id="btnSalir" title="Cerrar sesión" aria-label="Cerrar sesión"><span data-ico="salir"></span></button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <!-- ============ INICIO ============ -->
+      <section id="v-inicio" class="visible">
+        <div class="hero">
+          <div class="envoltura">
+            <div>
+              <p class="rotulo txt-oficina"></p>
+              <h1>Reserva tu sala <em>en tiempo real</em></h1>
+              <p class="lead" id="heroTexto">Consulta la disponibilidad de las salas de reuniones y reserva en segundos.</p>
+              <div class="acciones">
+                <button class="primary" id="heroReservar"><span data-ico="mas"></span>Reservar una sala</button>
+                <button class="secundario" id="heroCalendario"><span data-ico="calendario"></span>Ver calendario</button>
+              </div>
+            </div>
+            <div class="ahora" id="ahora"><div class="cargando" style="color:var(--on-navy-muted)">Cargando…</div></div>
+          </div>
+        </div>
+        <div class="envoltura">
+          <div class="kpis" id="kpis"></div>
+
+          <div class="titulo-seccion">
+            <h2>Salas de reuniones de la OGPL</h2>
+            <div class="subrayado"><i></i><i></i></div>
+            <p id="salasSub">Estado de cada sala y su agenda del día.</p>
+          </div>
+          <div class="salas-grid" id="salasGrid"><div class="cargando">Cargando…</div></div>
+
+          <div class="regresiva" id="regresiva"></div>
+        </div>
+      </section>
+
+      <!-- ============ RESERVAR ============ -->
+      <section id="v-reservar">
+        <div class="franja"><div class="envoltura">
+          <p class="rotulo">Nueva reserva</p>
+          <h1>Reserva una sala</h1>
+          <p class="sub">Elige la sala, la fecha y el horario. Verificamos la disponibilidad mientras completas el formulario.</p>
+        </div></div>
+        <div class="envoltura contenido">
+          <div id="formulario" class="reserva-grid">
+            <div class="card">
+              <div class="paso">
+                <h3 class="paso-tit"><span class="n">1</span>Elige la sala</h3>
+                <select id="fSala" hidden aria-hidden="true" tabindex="-1"></select>
+                <div class="selector-salas" id="selectorSalas" role="group" aria-label="Sala"></div>
+              </div>
+              <div class="paso">
+                <h3 class="paso-tit"><span class="n">2</span>Fecha y horario</h3>
+                <div class="grid">
+                  <div><label for="fFecha">Fecha</label><input type="date" id="fFecha"></div>
+                  <div><label for="fInicio">Hora de inicio</label><select id="fInicio"></select></div>
+                  <div><label for="fFin">Hora de fin</label><select id="fFin"></select></div>
+                </div>
+                <div class="chips" id="duraciones" aria-label="Duraciones rápidas"></div>
+              </div>
+              <div class="paso">
+                <h3 class="paso-tit"><span class="n">3</span>Detalles de la reunión</h3>
+                <div class="grid">
+                  <div class="span2"><label for="fTema">Tema de la reunión <span class="opc">(opcional)</span></label><input type="text" id="fTema" maxlength="120" placeholder="Reunión de trabajo"></div>
+                  <div><label for="fAsistentes">Asistentes <span class="opc">(opcional)</span></label><input type="number" id="fAsistentes" min="1" max="200" placeholder="Ej. 8"></div>
+                  <div>
+                    <label id="lblProy">¿Usarás el proyector?</label>
+                    <div class="seg" id="segProyector" role="radiogroup" aria-labelledby="lblProy">
+                      <label><input type="radio" name="proyector" value="SI">Sí</label>
+                      <label><input type="radio" name="proyector" value="NO">No</label>
+                    </div>
+                  </div>
+                  <div>
+                    <label id="lblLap">¿Usarás las laptops?</label>
+                    <div class="seg" id="segLaptops" role="radiogroup" aria-labelledby="lblLap">
+                      <label><input type="radio" name="laptops" value="SI">Sí</label>
+                      <label><input type="radio" name="laptops" value="NO">No</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="reglas"><span data-ico="info"></span><span id="reglas"></span></div>
+            </div>
+
+            <aside class="resumen">
+              <div class="card">
+                <div class="resumen-cab"><h3>Resumen de tu reserva</h3></div>
+                <div class="resumen-cuerpo">
+                  <div class="solicitante" id="solicitante"></div>
+                  <div class="res-sel" id="resumenSel"></div>
+                  <div id="estado" class="estado info" style="display:none" aria-live="polite"></div>
+                  <div class="acciones-res">
+                    <button class="primary" id="btnReservar" disabled><span data-ico="check"></span>Reservar</button>
+                    <button id="btnLimpiar">Limpiar formulario</button>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <div id="exito" class="card exito" style="display:none">
+            <div class="check"><span data-ico="check"></span></div>
+            <h2>Reserva confirmada</h2>
+            <div class="codigo" id="exCodigo"></div>
+            <p id="exDetalle" style="margin:6px 0"></p>
+            <p class="ayuda" id="exCorreo"></p>
+            <div class="acciones">
+              <button class="primary" id="btnOtra">Hacer otra reserva</button>
+              <button id="btnVerMis">Ver mis reservas</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CALENDARIO ============ -->
+      <section id="v-calendario">
+        <div class="franja"><div class="envoltura">
+          <p class="rotulo">Ocupación semanal</p>
+          <h1>Calendario de salas</h1>
+          <p class="sub">Haz clic en un espacio libre para empezar una reserva en esa sala y hora.</p>
+        </div></div>
+        <div class="envoltura contenido">
+          <div class="barra">
+            <button id="semAnt"><span data-ico="izq"></span>Anterior</button>
+            <button id="semHoy">Hoy</button>
+            <button id="semSig">Siguiente<span data-ico="der"></span></button>
+            <span class="semana" id="semTitulo"></span>
+            <input type="date" id="semIr" title="Ir a una fecha" aria-label="Ir a una fecha">
+            <span class="leyenda">
+              <span><span class="muestra" style="background:var(--teal-100);border-left:3px solid var(--teal-600)"></span>Mis reservas</span>
+              <span><span class="muestra" style="background:var(--idle-bg);border-left:3px solid var(--navy-700)"></span>Otras oficinas</span>
+            </span>
+          </div>
+          <div class="scroll"><div class="cal" id="cal"><div class="cargando">Cargando…</div></div></div>
+        </div>
+      </section>
+
+      <!-- ============ MIS RESERVAS ============ -->
+      <section id="v-mis">
+        <div class="franja"><div class="envoltura">
+          <p class="rotulo">Tu agenda</p>
+          <h1>Mis reservas</h1>
+          <p class="sub">Puedes cancelar una reserva hasta antes de su hora de inicio.</p>
+        </div></div>
+        <div class="envoltura contenido">
+          <h2 class="bloque-tit">Próximas</h2>
+          <div id="misProximas"><div class="cargando">Cargando…</div></div>
+          <h2 class="bloque-tit" style="margin-top:32px">Historial reciente</h2>
+          <div id="misHistorial"></div>
+        </div>
+      </section>
+
+      <!-- ============ ADMINISTRACIÓN ============ -->
+      <section id="v-admin">
+        <div class="franja"><div class="envoltura">
+          <p class="rotulo">Gestión</p>
+          <h1>Administración</h1>
+          <p class="sub">Revisa todas las reservas, aprueba cuentas nuevas y administra usuarios.</p>
+        </div></div>
+        <div class="envoltura contenido">
+          <div class="subnav">
+            <button id="subReservas" class="activa"><span data-ico="lista"></span>Reservas</button>
+            <button id="subUsuarios"><span data-ico="personas"></span>Usuarios <span class="contador" id="cntPend2" style="display:none"></span></button>
+          </div>
+
+          <div id="admReservas">
+            <div class="card">
+              <div class="grid">
+                <div><label for="aDesde">Desde</label><input type="date" id="aDesde"></div>
+                <div><label for="aHasta">Hasta</label><input type="date" id="aHasta"></div>
+                <div><label for="aSala">Sala</label><select id="aSala"></select></div>
+                <div><label for="aEstado">Estado</label>
+                  <select id="aEstado"><option value="TODAS">Todas</option><option value="CONFIRMADA">Confirmadas</option><option value="CANCELADA">Canceladas</option></select></div>
+              </div>
+              <div style="margin-top:16px"><button class="primary" id="aBuscar">Actualizar lista</button></div>
+            </div>
+            <div class="stats" id="aStats"></div>
+            <div class="card tabla scroll" id="aTabla"></div>
+          </div>
+
+          <div id="admUsuarios" style="display:none">
+            <div class="card">
+              <h2 style="margin:0 0 16px;font-size:18px">Crear nuevo usuario</h2>
+              <form id="fNuevoUsuario">
+                <div class="grid2">
+                  <div class="campo"><label for="nCorreo">Correo</label><input type="email" id="nCorreo" required placeholder="usuario@unmsm.edu.pe"></div>
+                  <div class="campo"><label for="nClave">Contraseña temporal</label>
+                    <div class="pw"><input type="text" id="nClave" required placeholder="Mínimo 8 caracteres"><button type="button" id="nGenerar">Generar</button></div></div>
+                  <div class="campo"><label for="nNombre">Nombre completo</label><input id="nNombre" required maxlength="120" placeholder="Ej. Juan Pérez García"></div>
+                  <div class="campo"><label for="nRol">Rol</label><select id="nRol"><option value="USUARIO">Usuario</option><option value="ADMIN">Administrador</option></select></div>
+                  <div class="campo span2"><label for="nOficina">Oficina</label><select id="nOficina" required></select></div>
+                </div>
+                <label class="check"><input type="checkbox" id="nEnviar" checked> Enviar los datos de acceso por correo al usuario</label>
+                <p class="ayuda">El usuario deberá cambiar la contraseña temporal la primera vez que ingrese.</p>
+                <button type="submit" class="primary" id="btnCrearUsuario" style="margin-top:8px">Crear usuario</button>
+              </form>
+            </div>
+            <div class="card tabla scroll" id="uTabla"><div class="cargando">Cargando…</div></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="pie">
+      <button id="btnArriba" title="Volver arriba" aria-label="Volver arriba"><span data-ico="arriba"></span></button>
+      <div class="envoltura pie-grid">
+        <div>
+          <div class="firma"><img class="logo" alt="Escudo de la UNMSM"><div><b>Oficina General de Planificación</b><small>OGPL · UNMSM</small></div></div>
+          <p>Sistema de reserva de salas de reuniones de las oficinas de la OGPL.</p>
+        </div>
+        <div><h4>Horario de reservas</h4><div id="pieHorario"></div></div>
+        <div><h4>Salas</h4><ul id="pieSalas"></ul></div>
+        <div><h4>Oficinas</h4><ul id="pieOficinas"></ul></div>
+      </div>
+      <div class="envoltura"><div class="pie-base"><span>Universidad Nacional Mayor de San Marcos · Dirección General de Planificación</span><span id="pieVersion"></span></div></div>
+    </footer>
+  </div>
+
+  <dialog id="dlg">
+    <div class="dh" id="dlgTitulo"></div>
+    <div class="db" id="dlgCuerpo"></div>
+    <div class="df" id="dlgPie"></div>
+  </dialog>
+  <div id="aviso" role="status"></div>
+
+<script>
+  /* ---------------- Iconos de línea (cuadrícula 24 px, trazo 1.75) ---------------- */
+  const ICONOS = {
+    inicio: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5M10 21v-6h4v6"/>',
+    calendario: '<rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/>',
+    reloj: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    personas: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.3-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c2 .7 3.2 2.4 3.5 5.2"/>',
+    ubicacion: '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+    proyector: '<rect x="2.5" y="8" width="19" height="9" rx="2"/><circle cx="15.5" cy="12.5" r="2.5"/><path d="M6 12.5h3M5 17v2M19 17v2"/>',
+    laptop: '<rect x="4.5" y="5" width="15" height="10" rx="1.5"/><path d="M2.5 19h19"/>',
+    check: '<path d="M4.5 12.5l5 5 10-11"/>',
+    cerrar: '<path d="M6 6l12 12M18 6 6 18"/>',
+    izq: '<path d="M15 5l-7 7 7 7"/>',
+    der: '<path d="M9 5l7 7-7 7"/>',
+    arriba: '<path d="M5 15l7-7 7 7"/>',
+    salir: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l4-4-4-4M14 12H4"/>',
+    clave: '<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M14.5 8.5l2 2"/>',
+    mas: '<path d="M12 5v14M5 12h14"/>',
+    sala: '<path d="M5 21V4.5A1.5 1.5 0 0 1 6.5 3h11A1.5 1.5 0 0 1 19 4.5V21M3 21h18"/><circle cx="15" cy="12.5" r=".9"/>',
+    hito: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+    lista: '<path d="M9 6h11M9 12h11M9 18h11M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>',
+    info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+    alerta: '<path d="M12 3.5 2.5 20h19L12 3.5z"/><path d="M12 10v4.5M12 17.5h.01"/>',
+    correo: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5 12 13l8.5-6.5"/>',
+    cualquiera: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>'
+  };
+  const ico = n => '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">' + (ICONOS[n] || '') + '</svg>';
+  function pintarIconos(raiz) {
+    (raiz || document).querySelectorAll('span[data-ico]').forEach(s => { s.outerHTML = ico(s.dataset.ico); });
+  }
+
+  /* ---------------- Utilidades ---------------- */
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const DIAS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+  const aMin = h => { const p = String(h).split(':'); return (+p[0]) * 60 + (+p[1] || 0); };
+  const aHora = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  const dow = f => { const d = new Date(f + 'T12:00:00Z').getUTCDay(); return d === 0 ? 7 : d; };
+  const sumarDias = (f, n) => { const d = new Date(f + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  const fechaLarga = f => DIAS[dow(f)] + ' ' + f.slice(8, 10) + '/' + f.slice(5, 7) + '/' + f.slice(0, 4);
+  const fechaCorta = f => f.slice(8, 10) + '/' + f.slice(5, 7);
+  const durTxt = m => (m >= 60 ? Math.floor(m / 60) + ' h' : '') + (m % 60 ? (m >= 60 ? ' ' : '') + (m % 60) + ' min' : '');
+  const siNo = v => (v === 'SI' ? 'Sí' : v === 'NO' ? 'No' : '');
+  const reglaClave = pw => (pw.length < 8 ? 'La contraseña debe tener al menos 8 caracteres.' :
+    (!/[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(pw) || !/\d/.test(pw)) ? 'La contraseña debe combinar letras y números.' : '');
+  const iniciales = n => String(n || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+
+  /** Llamada directa al servidor. */
+  function llamar(nombre, ...args) {
+    return new Promise((ok, fallo) => {
+      google.script.run.withSuccessHandler(ok).withFailureHandler(e => fallo(e))[nombre](...args);
+    });
+  }
+  /** Llamada autenticada: agrega el token y maneja sesión expirada o cambio obligatorio. */
+  function api(nombre, ...args) {
+    return llamar(nombre, TOKEN, ...args).then(r => {
+      if (r && r.codigo === 'SESION_EXPIRADA') { cerrarSesionLocal('Tu sesión expiró. Ingresa nuevamente.'); throw new Error('sesion'); }
+      if (r && r.codigo === 'DEBE_CAMBIAR') { mostrarCambio(true); throw new Error('cambio'); }
+      return r;
+    });
+  }
+  let avisoT;
+  function aviso(txt) {
+    const a = $('aviso'); a.textContent = txt; a.classList.add('ver');
+    clearTimeout(avisoT); avisoT = setTimeout(() => a.classList.remove('ver'), 4500);
+  }
+  function errorRed(e) {
+    if (e && (e.message === 'sesion' || e.message === 'cambio')) return;
+    aviso('No se pudo conectar con el servidor. Intenta de nuevo.'); console.error(e);
+  }
+  function mensaje(id, tipo, texto) { const m = $(id); m.className = 'msg-acceso ' + (texto ? tipo : ''); m.textContent = texto || ''; }
+
+  function dialogo(titulo, cuerpoHtml, botones) {
+    $('dlgTitulo').textContent = titulo;
+    $('dlgCuerpo').innerHTML = cuerpoHtml;
+    const pie = $('dlgPie'); pie.innerHTML = '';
+    botones.forEach(b => {
+      const el = document.createElement('button');
+      el.textContent = b.texto; if (b.clase) el.className = b.clase;
+      el.addEventListener('click', () => b.fn(el));
+      pie.appendChild(el);
+    });
+    const d = $('dlg'); if (!d.open) d.showModal();
+  }
+  const cerrarDialogo = () => { const d = $('dlg'); if (d.open) d.close(); };
+
+  function generarClave() {
+    const letras = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ', nums = '23456789';
+    const r = new Uint32Array(10); crypto.getRandomValues(r);
+    return Array.from(r, (n, i) => (i === 3 || i === 7) ? nums[n % nums.length] : letras[n % letras.length]).join('');
+  }
+
+  /* ---------------- Sesión ---------------- */
+  const CLAVE_TOKEN = 'reservas_ogpl_token';
+  const CLAVE_FOTOS = 'reservas_ogpl_fotos';
+  function leerToken() { try { return sessionStorage.getItem(CLAVE_TOKEN) || ''; } catch (e) { return ''; } }
+  function guardarToken(t) { TOKEN = t || ''; try { if (t) sessionStorage.setItem(CLAVE_TOKEN, t); else sessionStorage.removeItem(CLAVE_TOKEN); } catch (e) { /* sin almacenamiento */ } }
+  let TOKEN = leerToken();
+
+  function mostrarPantalla(p) {
+    document.querySelectorAll('.pantalla').forEach(x => x.classList.toggle('visible', x.id === 'p-' + p));
+    window.scrollTo(0, 0);
+  }
+
+  function cerrarSesionLocal(msg) {
+    guardarToken('');
+    S = null; T = null; detenerRegresiva(); cerrarDialogo();
+    $('fLogin').reset(); mensaje('loginMsg', 'info', msg || '');
+    mostrarPantalla('login');
+    // Solo enfoca el correo si nadie está escribiendo ya (evita mover el cursor mientras se escribe o autocompleta)
+    const activo = document.activeElement;
+    if (!$('lCorreo').value && (!activo || activo === document.body)) $('lCorreo').focus();
+  }
+
+  function mostrarCambio(obligatorio) {
+    $('fCambio').reset(); mensaje('cambioMsg', '', '');
+    $('cambioIntro').textContent = obligatorio
+      ? 'Por seguridad, reemplaza tu contraseña temporal antes de continuar.'
+      : 'Elige una contraseña nueva.';
+    $('volverCambioWrap').style.display = obligatorio ? 'none' : '';
+    $('p-cambio').dataset.obligatorio = obligatorio ? '1' : '';
+    mostrarPantalla('cambio');
+  }
+
+  /* ---------------- Estado de la aplicación ---------------- */
+  let S = null;            // datos de inicio (apiInicio)
+  let T = null;            // tablero del día (apiTablero)
+  let FOTOS = {};          // { 'Sala 1': [dataURI, ...] }
+  const carruselIdx = {};  // foto visible por sala
+  let verifSeq = 0, verifTimer = null;
+  let verifOk = null;      // { sala } cuando el formulario está verificado y libre
+  let semanaRef = null, semanaDatos = null, misDatos = null, usuariosDatos = null;
+  let regTimer = null, regOffset = 0, regRecarga = false;
+
+  let PUBLICO = null;      // logo, textos y opciones de registro (apiPublico)
+  // Panel de marca en cada pantalla de acceso
+  document.querySelectorAll('.pantalla.acceso').forEach(p => p.prepend($('tplMarca').content.cloneNode(true)));
+  pintarIconos();
+  enlazarEventos();
+  const DENTRO_DE_APPS_SCRIPT = typeof google !== 'undefined' && google.script && google.script.run;
+  if (!DENTRO_DE_APPS_SCRIPT) {
+    // El archivo se abrió directamente (doble clic, vista previa, etc.): no hay servidor al que llamar.
+    cerrarSesionLocal('');
+    mensaje('loginMsg', 'info', 'Estás viendo el archivo Index.html por sí solo. Esta página funciona únicamente publicada en ' +
+      'Google Apps Script: ábrela desde la URL de la aplicación web (la que termina en /exec), en Implementar → Gestionar implementaciones.');
+    $('btnLogin').disabled = true;
+  } else {
+  mostrarPantalla('cargando');
+  llamar('apiPublico').then(r => {
+    if (r && r.ok) aplicarPublico(r.data);
+    cargarFotos();
+    if (TOKEN) arrancar(); else cerrarSesionLocal('');
+  }).catch(e => {
+    console.error(e);
+    cerrarSesionLocal('');
+    mensaje('loginMsg', 'err', 'El servidor no respondió como se esperaba (' + (e && e.message ? e.message : 'error') +
+      '). Verifica que Code.gs, Logo.gs y Fotos.gs estén actualizados y publicados como una nueva versión.');
+  });
+  }
+
+  /** Llena una lista desplegable de oficinas; conserva el valor actual aunque no esté en la lista. */
+  function poblarOficinas(id, lista, actual) {
+    const sel = $(id); if (!sel) return;
+    const opciones = lista.slice();
+    if (actual && opciones.indexOf(actual) === -1) opciones.unshift(actual);
+    sel.innerHTML = (actual ? '' : '<option value="">Selecciona tu oficina</option>') +
+      opciones.map(o => '<option value="' + esc(o) + '">' + esc(o) + '</option>').join('');
+    sel.value = actual || '';
+  }
+
+  function aplicarPublico(d) {
+    PUBLICO = d;
+    document.title = d.servicio;
+    document.querySelectorAll('img.logo').forEach(i => { i.src = d.logo; });
+    document.querySelectorAll('.txt-servicio').forEach(x => { x.textContent = d.servicio; });
+    document.querySelectorAll('.txt-oficina').forEach(x => { x.textContent = d.oficina; });
+    $('lnkSolicitud').style.display = d.permitir_registro ? '' : 'none';
+    $('registroIntro').textContent = d.requiere_aprobacion
+      ? 'Completa tus datos. Un administrador revisará tu cuenta y te avisaremos por correo cuando puedas ingresar.'
+      : 'Completa tus datos. Podrás ingresar apenas crees tu cuenta.';
+    poblarOficinas('sOficina', d.oficinas || [], '');
+    $('registroDominios').textContent = d.dominios && d.dominios.length ? 'Solo se aceptan correos ' + d.dominios.map(x => '@' + x).join(', ') + '.' : '';
+    $('pieVersion').textContent = 'Versión ' + (d.version || '');
+  }
+
+  /* ---------------- Fotos de las salas ---------------- */
+  function cargarFotos() {
+    const version = PUBLICO && PUBLICO.version;
+    try {
+      const c = JSON.parse(sessionStorage.getItem(CLAVE_FOTOS) || 'null');
+      if (c && c.version === version && c.fotos) { FOTOS = c.fotos; aplicarFotos(); return; }
+    } catch (e) { /* sin caché */ }
+    llamar('apiFotos').then(r => {
+      if (!r || !r.ok) return;
+      FOTOS = r.data.fotos || {};
+      try { sessionStorage.setItem(CLAVE_FOTOS, JSON.stringify({ version: r.data.version, fotos: FOTOS })); } catch (e) { /* sin espacio */ }
+      aplicarFotos();
+    }).catch(e => console.error(e));
+  }
+  const fotosDe = sala => FOTOS[sala] || [];
+  const primeraFoto = () => { const k = Object.keys(FOTOS)[0]; return k ? FOTOS[k][0] : ''; };
+  function aplicarFotos() {
+    const f = primeraFoto();
+    if (f) document.documentElement.style.setProperty('--foto-acceso', 'url("' + f + '")');
+    if (S) { construirSelectorSalas(); actualizarResumen(); }
+    if (T) pintInicio();
+  }
+
+  function arrancar() {
+    mostrarPantalla('cargando');
+    api('apiInicio').then(r => {
+      if (!r.ok) { cerrarSesionLocal(r.mensaje); return; }
+      S = r.data; prepararApp(); mostrarPantalla('app');
+    }).catch(e => {
+      if (e && (e.message === 'sesion' || e.message === 'cambio')) return;
+      cerrarSesionLocal('No se pudo cargar la aplicación. Intenta de nuevo.'); console.error(e);
+    });
+  }
+
+  /* ---------------- Eventos (se enlazan una sola vez) ---------------- */
+  function enlazarEventos() {
+    // Mostrar / ocultar contraseñas
+    document.querySelectorAll('button[data-ver]').forEach(b => b.addEventListener('click', () => {
+      const i = $(b.dataset.ver); const ver = i.type === 'password'; i.type = ver ? 'text' : 'password'; b.textContent = ver ? 'Ocultar' : 'Mostrar';
+    }));
+
+    $('fLogin').addEventListener('submit', ev => {
+      ev.preventDefault();
+      const btn = $('btnLogin'); btn.disabled = true; btn.textContent = 'Ingresando…'; mensaje('loginMsg', '', '');
+      llamar('apiLogin', $('lCorreo').value, $('lClave').value).then(r => {
+        btn.disabled = false; btn.textContent = 'Ingresar al sistema';
+        if (!r.ok) { mensaje('loginMsg', 'err', r.mensaje); $('lClave').value = ''; $('lClave').focus(); return; }
+        guardarToken(r.data.token);
+        if (r.data.debe_cambiar) mostrarCambio(true); else arrancar();
+      }).catch(e => { btn.disabled = false; btn.textContent = 'Ingresar al sistema'; mensaje('loginMsg', 'err', 'No se pudo conectar con el servidor.'); console.error(e); });
+    });
+
+    $('irSolicitud').addEventListener('click', () => { $('fSolicitud').reset(); mensaje('solMsg', '', ''); mostrarPantalla('solicitud'); });
+    $('volverLogin').addEventListener('click', () => mostrarPantalla('login'));
+    $('fSolicitud').addEventListener('submit', ev => {
+      ev.preventDefault();
+      const pw = $('sClave').value;
+      const err = reglaClave(pw) || (pw !== $('sClave2').value ? 'Las contraseñas no coinciden.' : '');
+      if (err) return mensaje('solMsg', 'err', err);
+      const btn = $('btnSolicitar'); btn.disabled = true;
+      llamar('apiSolicitarCuenta', { nombre: $('sNombre').value, oficina: $('sOficina').value, correo: $('sCorreo').value, contrasena: pw }).then(r => {
+        btn.disabled = false;
+        if (!r.ok) return mensaje('solMsg', 'err', r.mensaje);
+        const correo = $('sCorreo').value.trim().toLowerCase();
+        $('fSolicitud').reset();
+        mostrarPantalla('login'); mensaje('loginMsg', 'ok', r.mensaje);
+        $('lCorreo').value = correo; $('lClave').value = '';
+      }).catch(e => { btn.disabled = false; mensaje('solMsg', 'err', 'No se pudo conectar con el servidor.'); console.error(e); });
+    });
+
+    $('fCambio').addEventListener('submit', ev => {
+      ev.preventDefault();
+      const nueva = $('cNueva').value;
+      const err = reglaClave(nueva) || (nueva !== $('cNueva2').value ? 'Las contraseñas nuevas no coinciden.' : '') ||
+        (nueva === $('cActual').value ? 'La nueva contraseña debe ser distinta de la actual.' : '');
+      if (err) return mensaje('cambioMsg', 'err', err);
+      const btn = $('btnCambiar'); btn.disabled = true;
+      api('apiCambiarContrasena', $('cActual').value, nueva).then(r => {
+        btn.disabled = false;
+        if (!r.ok) return mensaje('cambioMsg', 'err', r.mensaje);
+        guardarToken(r.data.token);
+        aviso('Contraseña actualizada.');
+        if (S && !$('p-cambio').dataset.obligatorio) mostrarPantalla('app'); else arrancar();
+      }).catch(e => { btn.disabled = false; errorRed(e); });
+    });
+    $('cancelarCambio').addEventListener('click', () => mostrarPantalla('app'));
+    $('salirCambio').addEventListener('click', salir);
+    $('btnMiClave').addEventListener('click', () => mostrarCambio(false));
+    $('btnSalir').addEventListener('click', salir);
+
+    // Navegación
+    document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => mostrar(b.dataset.vista)));
+    $('irInicio').addEventListener('click', ev => { ev.preventDefault(); mostrar('inicio'); });
+    const nueva = () => { limpiarForm(); mostrarFormulario(); mostrar('reservar'); };
+    $('btnNuevaTop').addEventListener('click', nueva);
+    $('heroReservar').addEventListener('click', nueva);
+    $('heroCalendario').addEventListener('click', () => mostrar('calendario'));
+    $('btnArriba').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    $('salasGrid').addEventListener('click', clicSalas);
+    $('ahora').addEventListener('click', clicSalas);
+    $('regresiva').addEventListener('click', ev => { if (ev.target.closest('#regReservar')) nueva(); });
+
+    // Formulario de reserva
+    $('selectorSalas').addEventListener('click', ev => {
+      const b = ev.target.closest('.sala-opcion'); if (!b) return;
+      elegirSala(b.dataset.sala); programarVerificacion();
+    });
+    ['fFecha', 'fInicio', 'fFin'].forEach(id => $(id).addEventListener('change', programarVerificacion));
+    // Los asistentes solo afectan la advertencia de capacidad: se refresca sin bloquear el botón
+    // (si no, el clic en "Reservar" justo después de escribir se perdería).
+    $('fAsistentes').addEventListener('change', () => {
+      if (!verifOk) return programarVerificacion();
+      clearTimeout(verifTimer);
+      verifTimer = setTimeout(() => verificar(true), 300);
+    });
+    $('fTema').addEventListener('input', actualizarResumen);
+    $('duraciones').addEventListener('click', e => {
+      const b = e.target.closest('button[data-d]'); if (!b) return;
+      if (!$('fInicio').value) { aviso('Primero elige la hora de inicio.'); return; }
+      const fin = aMin($('fInicio').value) + (+b.dataset.d);
+      if (fin > aMin(S.cfg.cierre)) { aviso('Esa duración pasa del horario de cierre (' + S.cfg.cierre + ').'); return; }
+      $('fFin').value = aHora(fin);
+      programarVerificacion();
+    });
+    $('btnReservar').addEventListener('click', () => confirmarReserva(null));
+    document.querySelectorAll('.seg input').forEach(i => i.addEventListener('change', () => { i.closest('.seg').classList.remove('falta'); actualizarResumen(); }));
+    $('btnLimpiar').addEventListener('click', limpiarForm);
+    $('btnOtra').addEventListener('click', () => { limpiarForm(); mostrarFormulario(); window.scrollTo(0, 0); });
+    $('btnVerMis').addEventListener('click', () => { mostrarFormulario(); mostrar('mis'); });
+
+    // Calendario y administración
+    $('semAnt').addEventListener('click', () => cargarSemana(sumarDias(semanaRef, -7)));
+    $('semSig').addEventListener('click', () => cargarSemana(sumarDias(semanaRef, 7)));
+    $('semHoy').addEventListener('click', () => cargarSemana(S.hoy));
+    $('semIr').addEventListener('change', e => { if (e.target.value) cargarSemana(e.target.value); });
+    $('cal').addEventListener('click', clicCalendario);
+    $('aBuscar').addEventListener('click', cargarAdmin);
+    $('subReservas').addEventListener('click', () => subAdmin('reservas'));
+    $('subUsuarios').addEventListener('click', () => subAdmin('usuarios'));
+    $('nGenerar').addEventListener('click', () => { $('nClave').value = generarClave(); });
+    $('fNuevoUsuario').addEventListener('submit', crearUsuario);
+  }
+
+  function salir() {
+    const t = TOKEN;
+    if (t) llamar('apiLogout', t).catch(() => {});
+    cerrarSesionLocal('Cerraste sesión.');
+  }
+
+  /* ---------------- Preparar la aplicación para el usuario que ingresó ---------------- */
+  function prepararApp() {
+    $('uNombre').textContent = S.usuario.nombre;
+    $('uOficina').textContent = S.usuario.oficina;
+    $('uAvatar').textContent = iniciales(S.usuario.nombre);
+    $('uAvatar').title = S.usuario.nombre + ' · ' + S.usuario.correo;
+    $('solicitante').innerHTML = '<div><span>Solicitante</span><br><b>' + esc(S.usuario.nombre) + '</b></div>' +
+      '<div><span>Oficina:</span> <b>' + esc(S.usuario.oficina) + '</b></div>' +
+      '<div><span>Correo:</span> ' + esc(S.usuario.correo) + '</div>' +
+      (S.usuario.prioridad ? '<span class="pill info">Prioridad de reserva</span>' : '');
+    poblarOficinas('nOficina', S.oficinas.map(o => o.oficina), '');
+    const esAdmin = S.usuario.rol === 'ADMIN';
+    $('tabAdmin').style.display = esAdmin ? '' : 'none';
+    pintarPendientes(S.pendientes);
+
+    construirSelectorSalas();
+    $('aSala').innerHTML = '<option value="">Todas</option>' + S.salas.map(s => '<option value="' + esc(s.sala) + '">' + esc(s.sala) + '</option>').join('');
+    $('fFecha').min = S.hoy; $('fFecha').max = S.limite;
+
+    poblarHoras();
+    poblarDuraciones();
+    const dias = S.cfg.dias_habiles.map(d => DIAS[d]).join(', ');
+    $('reglas').textContent = 'Reservas de ' + S.cfg.apertura + ' a ' + S.cfg.cierre + ' · ' + dias + ' · duración de ' +
+      durTxt(S.cfg.duracion_min) + ' a ' + durTxt(S.cfg.duracion_max) + ' · hasta ' + S.cfg.anticipacion_max_dias + ' días de anticipación' +
+      (S.feriados.length ? ' · Feriados próximos: ' + S.feriados.slice(0, 4).map(f => fechaCorta(f.fecha) + ' (' + f.descripcion + ')').join(', ') : '') + '.';
+    $('aDesde').value = S.hoy; $('aHasta').value = sumarDias(S.hoy, 30);
+
+    // Pie de página
+    $('pieHorario').innerHTML = '<p>' + esc(rangoDias(S.cfg.dias_habiles)) + '</p><p>' + esc(S.cfg.apertura + ' – ' + S.cfg.cierre) + '</p>' +
+      '<p>Hasta ' + S.cfg.anticipacion_max_dias + ' días de anticipación</p>';
+    $('pieSalas').innerHTML = S.salas.map(s => '<li>' + esc(s.sala) + (s.capacidad ? ' · ' + s.capacidad + ' personas' : '') + '</li>').join('');
+    $('pieOficinas').innerHTML = S.oficinas.map(o => '<li>' + esc(o.oficina.replace(/^Oficina de /, '')) + '</li>').join('');
+
+    semanaRef = null; semanaDatos = null; misDatos = null; usuariosDatos = null; T = null;
+    limpiarForm(); mostrarFormulario(); subAdmin('reservas', true); mostrar('inicio');
+  }
+
+  function rangoDias(ds) {
+    const l = ds.slice().sort((a, b) => a - b);
+    const seguidos = l.every((d, i) => i === 0 || d === l[i - 1] + 1);
+    const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+    if (l.length > 2 && seguidos) return cap(DIAS[l[0]]) + ' a ' + DIAS[l[l.length - 1]];
+    return cap(l.map(d => DIAS[d]).join(', '));
+  }
+
+  function pintarPendientes(n) {
+    ['cntPend', 'cntPend2'].forEach(id => { $(id).textContent = n; $(id).style.display = n ? '' : 'none'; });
+  }
+
+  function mostrar(vista) {
+    document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('activa', b.dataset.vista === vista));
+    document.querySelectorAll('main > section').forEach(s => s.classList.toggle('visible', s.id === 'v-' + vista));
+    window.scrollTo(0, 0);
+    if (vista !== 'inicio') detenerRegresiva();
+    if (vista === 'inicio') cargarTablero();
+    if (vista === 'calendario') cargarSemana(semanaRef || S.hoy);
+    if (vista === 'mis') cargarMis();
+    if (vista === 'admin') { if ($('admUsuarios').style.display === 'none') cargarAdmin(); else cargarUsuarios(); }
+  }
+
+  /* ---------------- Inicio: tablero en tiempo real ---------------- */
+  function cargarTablero() {
+    if (T) pintInicio();
+    api('apiTablero').then(r => {
+      if (!r.ok) { $('salasGrid').innerHTML = '<div class="vacio">' + esc(r.mensaje) + '</div>'; return; }
+      T = r.data; regOffset = T.servidor_ms - Date.now(); regRecarga = false;
+      if ($('v-inicio').classList.contains('visible')) pintInicio();
+    }).catch(errorRed);
+  }
+
+  function estadoSala(s) {
+    if (!T.es_hoy) return { cls: 'idle', txt: 'Fuera de horario', det: s.reservas.length ? s.reservas.length + ' reserva(s) el ' + fechaCorta(T.dia) : 'Libre todo el ' + fechaCorta(T.dia) };
+    if (s.estado === 'OCUPADA') return { cls: 'crit', txt: 'Ocupada', det: 'Hasta las ' + s.hasta + (s.oficina ? ' · ' + s.oficina : '') };
+    return { cls: 'ok', txt: 'Libre', det: s.hasta === S.cfg.cierre ? 'Libre hasta el cierre (' + s.hasta + ')' : 'Libre hasta las ' + s.hasta };
+  }
+
+  function pintInicio() {
+    if (!T || !S) return;
+    const k = T.kpi;
+    $('heroTexto').textContent = T.es_hoy
+      ? 'Hoy es ' + T.dia_texto + ', ' + T.hora + '. Consulta qué salas están libres y reserva en segundos.'
+      : 'Fuera del horario de reservas. Te mostramos la agenda del ' + T.dia_texto + '.';
+    $('salasSub').textContent = (T.es_hoy ? 'Estado en este momento y agenda de hoy.' : 'Agenda del ' + T.dia_texto + '.');
+
+    $('ahora').innerHTML = '<h3>' + (T.es_hoy ? 'Ahora mismo' : 'Próximo día hábil') + '</h3>' +
+      '<p class="cuando">' + esc(T.es_hoy ? 'Actualizado a las ' + T.hora : T.dia_texto) + '</p>' +
+      T.salas.map(s => {
+        const e = estadoSala(s), f = fotosDe(s.sala)[0];
+        return '<div class="ahora-fila"><div class="mini-foto" style="' + (f ? 'background-image:url(\'' + f + '\')' : '') + '">' + (f ? '' : ico('sala')) + '</div>' +
+          '<div><b>' + esc(s.sala) + '</b><div class="det">' + esc(e.det) + '</div></div>' +
+          '<span class="pill ' + e.cls + '">' + e.txt + '</span></div>';
+      }).join('');
+
+    const kpi = (v, t) => '<div class="kpi"><b>' + v + '</b><span>' + t + '</span></div>';
+    $('kpis').innerHTML =
+      kpi(k.reservas_dia, T.es_hoy ? 'Reservas hoy' : 'Reservas el ' + fechaCorta(T.dia)) +
+      kpi(k.salas_libres + '/' + k.salas_total, T.es_hoy ? 'Salas libres ahora' : 'Salas disponibles') +
+      kpi(k.mis_proximas, 'Tus próximas reservas') +
+      kpi(k.ocupacion_dia + '%', 'Ocupación del día') +
+      kpi(String(k.horas_semana).replace('.', ',') + ' h', 'Reservadas esta semana');
+
+    const ap = aMin(S.cfg.apertura), ci = aMin(S.cfg.cierre), total = Math.max(1, ci - ap);
+    const pct = m => Math.max(0, Math.min(100, (m - ap) * 100 / total));
+    const ahoraMin = aMin(T.hora);
+    const medio = aHora(ap + Math.round(total / 2 / 60) * 60);
+    $('salasGrid').innerHTML = T.salas.map(s => {
+      const e = estadoSala(s), fotos = fotosDe(s.sala);
+      const idx = Math.min(carruselIdx[s.sala] || 0, Math.max(0, fotos.length - 1));
+      const carrusel = '<div class="carrusel" data-sala="' + esc(s.sala) + '">' +
+        (fotos.length ? '<div class="pista" style="transform:translateX(-' + (idx * 100) + '%)">' + fotos.map((f, i) => '<img src="' + f + '" alt="' + esc(s.sala) + ', foto ' + (i + 1) + '" loading="lazy">').join('') + '</div>'
+          : '<div class="sin-foto">' + ico('sala') + '</div>') +
+        '<span class="pill ' + e.cls + '">' + e.txt + '</span>' +
+        '<div class="nombre-foto">' + esc(s.sala) + '</div>' +
+        (fotos.length > 1 ? '<button class="flecha izq" data-mover="-1" aria-label="Foto anterior">' + ico('izq') + '</button>' +
+          '<button class="flecha der" data-mover="1" aria-label="Foto siguiente">' + ico('der') + '</button>' +
+          '<div class="puntos">' + fotos.map((_, i) => '<button data-punto="' + i + '" class="' + (i === idx ? 'activo' : '') + '" aria-label="Ver foto ' + (i + 1) + '"></button>').join('') + '</div>' : '') +
+        '</div>';
+      const datos = '<div class="sala-datos">' +
+        (s.capacidad ? '<span>' + ico('personas') + 'Hasta ' + s.capacidad + ' personas</span>' : '') +
+        (s.ubicacion ? '<span>' + ico('ubicacion') + esc(s.ubicacion) + '</span>' : '') +
+        (s.equipamiento ? '<span>' + ico('proyector') + esc(s.equipamiento) + '</span>' : '') + '</div>';
+      const barra = '<div><div class="agenda-tit"><b>Agenda del ' + (T.es_hoy ? 'día' : fechaCorta(T.dia)) + '</b><span>' + s.ocupacion_pct + '% ocupada</span></div>' +
+        '<div class="barra-dia" role="img" aria-label="Ocupación del día ' + s.ocupacion_pct + '%">' +
+        s.reservas.map(r => '<div class="seg-ocupado ' + (r.propia ? 'propia' : '') + '" style="left:' + pct(aMin(r.hora_inicio)) + '%;width:' + (pct(aMin(r.hora_fin)) - pct(aMin(r.hora_inicio))) + '%" title="' + esc(r.hora_inicio + '–' + r.hora_fin + ' · ' + r.oficina) + '"></div>').join('') +
+        (T.es_hoy && ahoraMin >= ap && ahoraMin <= ci ? '<div class="marca-ahora" style="left:' + pct(ahoraMin) + '%" title="Ahora ' + T.hora + '"></div>' : '') +
+        '</div><div class="barra-horas"><span>' + S.cfg.apertura + '</span><span>' + medio + '</span><span>' + S.cfg.cierre + '</span></div></div>';
+      const lista = s.reservas.length
+        ? '<ul class="lista-dia">' + s.reservas.map(r => '<li class="' + (r.propia ? 'propia' : '') + '"><span class="mono">' + r.hora_inicio + '–' + r.hora_fin + '</span><span class="of">' + esc(r.oficina) + (r.propia ? ' · tu reserva' : '') + '</span></li>').join('') + '</ul>'
+        : '<p class="ayuda" style="margin:0">Sin reservas para este día.</p>';
+      return '<article class="sala-card">' + carrusel + '<div class="sala-cuerpo">' + datos + barra + lista +
+        '<div class="sala-pie"><button class="secundario" data-reservar="' + esc(s.sala) + '">' + ico('calendario') + 'Reservar ' + esc(s.sala) + '</button></div></div></article>';
+    }).join('') || '<div class="vacio">No hay salas activas.</div>';
+
+    pintarRegresiva();
+  }
+
+  function clicSalas(ev) {
+    const mover = ev.target.closest('[data-mover]'), punto = ev.target.closest('[data-punto]');
+    if (mover || punto) {
+      const car = ev.target.closest('.carrusel'), sala = car.dataset.sala, n = fotosDe(sala).length;
+      if (!n) return;
+      const i = punto ? +punto.dataset.punto : ((carruselIdx[sala] || 0) + (+mover.dataset.mover) + n) % n;
+      carruselIdx[sala] = i;
+      car.querySelector('.pista').style.transform = 'translateX(-' + (i * 100) + '%)';
+      car.querySelectorAll('.puntos button').forEach((b, j) => b.classList.toggle('activo', j === i));
+      return;
+    }
+    const b = ev.target.closest('[data-reservar]');
+    if (b) {
+      limpiarForm(); mostrarFormulario(); mostrar('reservar');
+      elegirSala(b.dataset.reservar);
+      if (T && T.dia >= S.hoy) $('fFecha').value = T.dia;
+      actualizarResumen();
+      $('fInicio').focus();
+    }
+  }
+
+  /* ---------------- Inicio: cuenta regresiva a tu próxima reunión ---------------- */
+  function pintarRegresiva() {
+    detenerRegresiva();
+    const p = T && T.proxima;
+    if (!p) {
+      $('regresiva').innerHTML = '<div><p class="rotulo">Tu próxima reunión</p><h3>No tienes reuniones programadas</h3>' +
+        '<p>Reserva una sala para tu siguiente reunión de trabajo. Recibirás la confirmación en tu correo.</p></div>' +
+        '<div><button class="btn-nueva" id="regReservar">' + ico('mas') + 'Reservar una sala</button></div>';
+      return;
+    }
+    $('regresiva').innerHTML = '<div><p class="rotulo" id="regRotulo"></p><h3>' + esc(p.tema || 'Reunión de trabajo') + '</h3>' +
+      '<div class="detalle"><span>' + ico('sala') + esc(p.sala) + '</span><span>' + ico('calendario') + esc(fechaLarga(p.fecha)) + '</span>' +
+      '<span>' + ico('reloj') + p.hora_inicio + ' – ' + p.hora_fin + '</span><span class="mono">' + esc(p.id_reserva) + '</span></div></div>' +
+      '<div class="circulos">' + ['Días', 'Horas', 'Min', 'Seg'].map((t, i) => '<div class="circulo"><b id="reg' + i + '">0</b><span>' + t + '</span></div>').join('') + '</div>';
+    const tick = () => {
+      const ahora = Date.now() + regOffset;
+      const enCurso = ahora >= p.inicio_ms;
+      const meta = enCurso ? p.fin_ms : p.inicio_ms;
+      let s = Math.max(0, Math.floor((meta - ahora) / 1000));
+      const rot = $('regRotulo'); if (!rot) return detenerRegresiva();
+      rot.textContent = enCurso ? 'Reunión en curso · termina en' : 'Tu próxima reunión empieza en';
+      const v = [Math.floor(s / 86400), Math.floor(s % 86400 / 3600), Math.floor(s % 3600 / 60), s % 60];
+      v.forEach((n, i) => { const el = $('reg' + i); if (el) el.textContent = i === 0 ? n : String(n).padStart(2, '0'); });
+      if (s === 0 && enCurso && !regRecarga) { regRecarga = true; detenerRegresiva(); cargarTablero(); }
+    };
+    tick();
+    regTimer = setInterval(tick, 1000);
+  }
+  function detenerRegresiva() { if (regTimer) { clearInterval(regTimer); regTimer = null; } }
+
+  /* ---------------- Formulario de reserva ---------------- */
+  function construirSelectorSalas() {
+    if (!S) return;
+    $('fSala').innerHTML = '<option value="">Cualquier sala libre</option>' +
+      S.salas.map(s => '<option value="' + esc(s.sala) + '">' + esc(s.sala) + '</option>').join('');
+    const actual = $('fSala').dataset.v || '';
+    const opcion = (valor, titulo, sub, foto, icono) =>
+      '<button type="button" class="sala-opcion" data-sala="' + esc(valor) + '" aria-pressed="false">' +
+      '<span class="mini ' + (valor ? '' : 'cualquiera') + '" style="' + (foto ? 'background-image:url(\'' + foto + '\')' : '') + '">' + (foto ? '' : ico(icono)) + '</span>' +
+      '<span class="txt"><b>' + esc(titulo) + '</b><small>' + esc(sub) + '</small></span><span class="marca-sel">' + ico('check') + '</span></button>';
+    $('selectorSalas').innerHTML = opcion('', 'Cualquier sala libre', 'Te asignamos la que esté disponible', '', 'cualquiera') +
+      S.salas.map(s => opcion(s.sala, s.sala, (s.capacidad ? 'Hasta ' + s.capacidad + ' personas' : '') + (s.ubicacion ? (s.capacidad ? ' · ' : '') + s.ubicacion : ''), fotosDe(s.sala)[0], 'sala')).join('');
+    elegirSala(actual);
+  }
+
+  function elegirSala(v) {
+    v = v || '';
+    $('fSala').value = v; $('fSala').dataset.v = v;
+    document.querySelectorAll('#selectorSalas .sala-opcion').forEach(b => {
+      const on = b.dataset.sala === v; b.classList.toggle('activa', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    actualizarResumen();
+  }
+
+  function actualizarResumen() {
+    if (!S) return;
+    const f = leerForm();
+    const sala = f.sala || (verifOk && verifOk.sala) || '';
+    const info = S.salas.filter(s => s.sala === sala)[0];
+    const foto = sala ? fotosDe(sala)[0] : '';
+    const dd = (v, falta) => v ? '<dd>' + esc(v) + '</dd>' : '<dd class="pend">' + (falta || 'Por definir') + '</dd>';
+    const dur = f.hora_inicio && f.hora_fin && aMin(f.hora_fin) > aMin(f.hora_inicio) ? durTxt(aMin(f.hora_fin) - aMin(f.hora_inicio)) : '';
+    $('resumenSel').innerHTML =
+      '<div class="foto" style="' + (foto ? 'background-image:url(\'' + foto + '\')' : '') + '">' + (foto ? '' : ico(sala ? 'sala' : 'cualquiera')) + '</div>' +
+      '<dl class="datos">' +
+      '<dt>Sala</dt>' + dd(f.sala ? f.sala : (sala ? sala + ' (asignada)' : 'Cualquier sala libre')) +
+      (info && info.capacidad ? '<dt>Capacidad</dt>' + dd(info.capacidad + ' personas') : '') +
+      '<dt>Fecha</dt>' + dd(f.fecha ? fechaLarga(f.fecha) : '') +
+      '<dt>Horario</dt>' + dd(f.hora_inicio && f.hora_fin ? f.hora_inicio + ' – ' + f.hora_fin : '') +
+      '<dt>Duración</dt>' + dd(dur) +
+      '<dt>Proyector</dt>' + dd(siNo(f.proyector), 'Indica Sí o No') +
+      '<dt>Laptops</dt>' + dd(siNo(f.laptops), 'Indica Sí o No') +
+      '<dt>Tema</dt>' + dd(f.tema || 'Reunión de trabajo') +
+      '</dl>';
+  }
+
+  function poblarHoras() {
+    const ap = aMin(S.cfg.apertura), ci = aMin(S.cfg.cierre), p = S.cfg.paso;
+    let oi = '<option value="">Selecciona</option>', of = oi;
+    for (let t = ap; t <= ci; t += p) {
+      if (t + S.cfg.duracion_min <= ci) oi += '<option value="' + aHora(t) + '">' + aHora(t) + '</option>';
+      if (t > ap) of += '<option value="' + aHora(t) + '">' + aHora(t) + '</option>';
+    }
+    $('fInicio').innerHTML = oi; $('fFin').innerHTML = of;
+  }
+
+  function poblarDuraciones() {
+    const opciones = [30, 60, 90, 120, 180, 240].filter(d => d >= S.cfg.duracion_min && d <= S.cfg.duracion_max && d % S.cfg.paso === 0);
+    $('duraciones').innerHTML = opciones.map(d => '<button type="button" class="chip" data-d="' + d + '">' + durTxt(d) + '</button>').join('');
+  }
+
+  function leerForm() {
+    return {
+      sala: $('fSala').value, fecha: $('fFecha').value, hora_inicio: $('fInicio').value, hora_fin: $('fFin').value,
+      tema: $('fTema').value.trim(), asistentes: $('fAsistentes').value ? +$('fAsistentes').value : 0,
+      proyector: valorRadio('proyector'), laptops: valorRadio('laptops')
+    };
+  }
+  function valorRadio(nombre) {
+    const r = document.querySelector('input[name="' + nombre + '"]:checked');
+    return r ? r.value : '';
+  }
+
+  function mostrarEstado(tipo, html) {
+    const e = $('estado'); e.className = 'estado ' + tipo; e.innerHTML = html; e.style.display = html ? 'block' : 'none';
+  }
+
+  function programarVerificacion() {
+    verifOk = null; $('btnReservar').disabled = true;
+    const f = leerForm();
+    if (f.fecha && f.hora_inicio && f.hora_fin) mostrarEstado('info', 'Verificando disponibilidad…'); // evita dejar visible un resultado anterior
+    actualizarResumen();
+    clearTimeout(verifTimer);
+    verifTimer = setTimeout(verificar, 300);
+  }
+
+  function verificar(silencioso) {
+    const f = leerForm();
+    if (!f.fecha || !f.hora_inicio || !f.hora_fin) {
+      mostrarEstado('info', 'Completa fecha, hora de inicio y hora de fin para ver la disponibilidad.');
+      return;
+    }
+    const feriado = S.feriados.filter(x => x.fecha === f.fecha)[0];
+    if (f.fecha < S.hoy) return mostrarEstado('err', 'La fecha no puede ser anterior a hoy.');
+    if (f.fecha > S.limite) return mostrarEstado('err', 'Solo se puede reservar con hasta ' + S.cfg.anticipacion_max_dias + ' días de anticipación.');
+    if (S.cfg.dias_habiles.indexOf(dow(f.fecha)) === -1) return mostrarEstado('err', 'El ' + DIAS[dow(f.fecha)] + ' no es día hábil para reservas.');
+    if (feriado) return mostrarEstado('err', 'El ' + fechaLarga(f.fecha) + ' es feriado (' + esc(feriado.descripcion) + ').');
+    if (aMin(f.hora_fin) <= aMin(f.hora_inicio)) return mostrarEstado('err', 'La hora de fin debe ser posterior a la de inicio.');
+    const dur = aMin(f.hora_fin) - aMin(f.hora_inicio);
+    if (dur < S.cfg.duracion_min) return mostrarEstado('err', 'La duración mínima es de ' + durTxt(S.cfg.duracion_min) + '.');
+    if (dur > S.cfg.duracion_max) return mostrarEstado('err', 'La duración máxima es de ' + durTxt(S.cfg.duracion_max) + '.');
+
+    const mi = ++verifSeq;
+    if (!silencioso) mostrarEstado('info', 'Verificando disponibilidad…');
+    api('apiVerificar', f).then(r => {
+      if (mi !== verifSeq) return; // llegó tarde: el usuario ya cambió el formulario
+      pintarResultado(r, f);
+    }).catch(e => { if (e && e.message) { if (e.message === 'sesion' || e.message === 'cambio') return; } mostrarEstado('err', 'No se pudo verificar la disponibilidad. Intenta de nuevo.'); console.error(e); });
+  }
+
+  function pintarResultado(r, f) {
+    const d = r.data || {};
+    verifOk = null; $('btnReservar').disabled = true;
+    if (r.codigo === 'DISPONIBLE') {
+      verifOk = { sala: d.sala };
+      $('btnReservar').disabled = false;
+      mostrarEstado(d.advertencia ? 'warn' : 'ok', ico('check') + ' <b>Disponible.</b> ' + esc(r.mensaje));
+    } else if (r.codigo === 'CONFLICTO_SALA') {
+      mostrarEstado('warn', ico('alerta') + ' <b>Sala ocupada.</b> ' + esc(r.mensaje) +
+        '<div class="acciones"><button class="chip" id="usarAlt">Usar ' + esc(d.sala_alternativa) + '</button></div>' + bloquePrioridad(d.prioridad));
+      $('usarAlt').addEventListener('click', () => { elegirSala(d.sala_alternativa); programarVerificacion(); });
+      enlazarPrioridad(d.prioridad);
+    } else if (r.codigo === 'CONFLICTO_AMBAS') {
+      const sug = d.sugerencias || [];
+      mostrarEstado('err', ico('alerta') + ' <b>Sin disponibilidad.</b> ' + esc(r.mensaje.split(' Horarios libres')[0]) +
+        (sug.length ? '<div style="margin-top:8px">Alternativas con la misma duración:</div><div class="acciones">' +
+          sug.map((s, i) => '<button class="chip" data-i="' + i + '">' + esc(s.sala) + ' · ' + fechaCorta(s.fecha) + ' · ' + s.hora_inicio + '–' + s.hora_fin + '</button>').join('') + '</div>' : '') +
+        bloquePrioridad(d.prioridad));
+      enlazarPrioridad(d.prioridad);
+      document.querySelectorAll('#estado button[data-i]').forEach(b => b.addEventListener('click', () => {
+        const s = sug[+b.dataset.i];
+        elegirSala(s.sala); $('fFecha').value = s.fecha; $('fInicio').value = s.hora_inicio; $('fFin').value = s.hora_fin;
+        programarVerificacion();
+      }));
+    } else {
+      mostrarEstado('err', esc(r.mensaje));
+    }
+    actualizarResumen();
+  }
+
+  /** Para oficinas con prioridad: opción de ocupar una sala ya reservada. */
+  function bloquePrioridad(p) {
+    if (!p) return '';
+    if (!p.disponible) return '<div class="prio no">' + ico('hito') + ' ' + esc(p.motivo) + '</div>';
+    const lista = p.desplazaria.map(x => esc(x.oficina) + ' (' + x.hora_inicio + '–' + x.hora_fin + ')').join(', ');
+    return '<div class="prio">' + ico('hito') + ' <b>Tu oficina tiene prioridad.</b> Puedes reservar la ' + esc(p.sala) + ' de todos modos: se cancelará ' +
+      (p.desplazaria.length > 1 ? 'las reservas de ' : 'la reserva de ') + lista +
+      ' y se le avisará por correo con horarios alternativos.' +
+      '<div class="acciones"><button class="chip prio-btn" id="usarPrioridad">Reservar ' + esc(p.sala) + ' con prioridad</button></div></div>';
+  }
+  function enlazarPrioridad(p) {
+    const b = $('usarPrioridad');
+    if (b && p && p.disponible) b.addEventListener('click', () => confirmarReserva(p));
+  }
+
+  function confirmarReserva(prioridad) {
+    if (!prioridad && !verifOk) return;
+    const f = leerForm();
+    if (!f.proyector || !f.laptops) {
+      if (!f.proyector) $('segProyector').classList.add('falta');
+      if (!f.laptops) $('segLaptops').classList.add('falta');
+      aviso('Indica si usarás el proyector y las laptops.');
+      return;
+    }
+    const sala = prioridad ? prioridad.sala : verifOk.sala;
+    const cuerpo = '<table>' +
+      '<tr><td>Sala</td><td><b>' + esc(sala) + '</b></td></tr>' +
+      '<tr><td>Fecha</td><td><b>' + esc(fechaLarga(f.fecha)) + '</b></td></tr>' +
+      '<tr><td>Horario</td><td><b>' + f.hora_inicio + ' – ' + f.hora_fin + '</b></td></tr>' +
+      '<tr><td>Oficina</td><td><b>' + esc(S.usuario.oficina) + '</b></td></tr>' +
+      '<tr><td>Tema</td><td><b>' + esc(f.tema || 'Reunión de trabajo') + '</b></td></tr>' +
+      '<tr><td>Proyector</td><td><b>' + siNo(f.proyector) + '</b></td></tr>' +
+      '<tr><td>Laptops</td><td><b>' + siNo(f.laptops) + '</b></td></tr></table>' +
+      (prioridad
+        ? '<div class="aviso-prio"><b>Reserva con prioridad.</b> Se cancelará: ' +
+          prioridad.desplazaria.map(x => '<br>· ' + esc(x.oficina) + ' – ' + esc(x.responsable) + ' (' + x.hora_inicio + '–' + x.hora_fin + ', ' + esc(x.tema) + ')').join('') +
+          '<br>Se le notificará por correo, a su oficina y a la persona, con horarios disponibles para reprogramar.</div>' +
+          '<div class="campo"><label for="motivoPrio">Motivo (opcional, se incluirá en el aviso)</label><textarea id="motivoPrio" rows="2" maxlength="150"></textarea></div>'
+        : '') +
+      '<p class="ayuda" style="margin-top:12px">Enviaremos la confirmación a tu correo y avisaremos a los encargados de la sala.</p>';
+    dialogo(prioridad ? 'Confirmar reserva con prioridad' : 'Confirmar reserva', cuerpo, [
+      { texto: 'Volver', fn: cerrarDialogo },
+      { texto: prioridad ? 'Reservar con prioridad' : 'Confirmar reserva', clase: prioridad ? 'prio-btn' : 'primary', fn: btn => {
+        btn.disabled = true; btn.textContent = 'Reservando…';
+        f.sala = sala;
+        if (prioridad) { f.usar_prioridad = true; f.motivo_prioridad = ($('motivoPrio') || {}).value || ''; }
+        api('apiReservar', f).then(r => {
+          cerrarDialogo();
+          if (r.ok) return mostrarExito(r);
+          pintarResultado(r, f);
+        }).catch(e => { cerrarDialogo(); errorRed(e); });
+      } }
+    ]);
+  }
+
+  function mostrarExito(r) {
+    const x = r.data.reserva;
+    $('exCodigo').textContent = x.id_reserva;
+    $('exDetalle').innerHTML = '<b>' + esc(x.sala) + '</b> · ' + esc(fechaLarga(x.fecha)) + ' · ' + x.hora_inicio + '–' + x.hora_fin + '<br>' + esc(x.tema);
+    $('exCorreo').textContent = (r.data.correo_usuario ? 'Te enviamos la confirmación a ' + S.usuario.correo + '. ' : 'No se pudo enviar el correo de confirmación; guarda tu código. ') +
+      (r.data.correo_encargados ? 'Se avisó a los encargados de la sala. ' : '') +
+      ((r.data.desplazadas || []).length ? 'Se reasignó por prioridad la reserva de ' + r.data.desplazadas.map(x => x.oficina + ' (' + x.hora_inicio + '–' + x.hora_fin + ')').join(', ') + ' y se le avisó por correo.' : '');
+    $('formulario').style.display = 'none'; $('exito').style.display = 'block';
+    misDatos = null; semanaDatos = null; T = null;
+    window.scrollTo(0, 0);
+  }
+
+  function mostrarFormulario() { $('formulario').style.display = ''; $('exito').style.display = 'none'; }
+
+  function limpiarForm() {
+    ['fFecha', 'fInicio', 'fFin', 'fTema', 'fAsistentes'].forEach(id => { $(id).value = ''; });
+    document.querySelectorAll('.seg input').forEach(i => { i.checked = false; });
+    document.querySelectorAll('.seg').forEach(x => x.classList.remove('falta'));
+    verifOk = null; $('btnReservar').disabled = true; mostrarEstado('info', '');
+    elegirSala('');
+  }
+
+  /* ---------------- Calendario ---------------- */
+  function cargarSemana(ref) {
+    semanaRef = ref;
+    $('cal').innerHTML = '<div class="cargando">Cargando…</div>';
+    api('apiSemana', ref).then(r => {
+      if (!r.ok) { $('cal').innerHTML = '<div class="vacio">' + esc(r.mensaje) + '</div>'; return; }
+      semanaDatos = r.data; semanaRef = r.data.lunes; pintarSemana();
+    }).catch(errorRed);
+  }
+
+  function pintarSemana() {
+    const d = semanaDatos, hourPx = 48;
+    const ap = aMin(d.apertura), ci = aMin(d.cierre), horas = Math.ceil((ci - ap) / 60);
+    $('semTitulo').textContent = d.dias.length ? 'Semana del ' + d.dias[0].etiqueta + ' al ' + d.dias[d.dias.length - 1].etiqueta : '';
+    $('semIr').value = d.lunes;
+    let html = '<div class="regla"><div class="encreg"></div>';
+    for (let i = 0; i < horas; i++) html += '<div class="h">' + aHora(ap + i * 60) + '</div>';
+    html += '</div>';
+    d.dias.forEach(dia => {
+      html += '<div class="dia ' + (dia.fecha === S.hoy ? 'hoy' : '') + '">' +
+        '<div class="encdia"><b>' + esc(dia.etiqueta) + '</b><div class="carriles">' + d.salas.map(s => '<span>' + esc(s.sala) + '</span>').join('') + '</div></div>' +
+        '<div class="cuerpo ' + (dia.feriado ? 'feriado' : '') + '" style="height:' + (horas * hourPx) + 'px">' +
+        (dia.feriado ? '<div class="feriado-et">Feriado: ' + esc(dia.feriado) + '</div>' : '');
+      d.salas.forEach(s => {
+        html += '<div class="carril" data-fecha="' + dia.fecha + '" data-sala="' + esc(s.sala) + '">';
+        for (let i = 0; i < horas; i++) html += '<div class="franja-h"></div>';
+        d.reservas.filter(r => r.fecha === dia.fecha && r.sala === s.sala).forEach(r => {
+          const top = (aMin(r.hora_inicio) - ap) * hourPx / 60;
+          const alto = Math.max(18, (aMin(r.hora_fin) - aMin(r.hora_inicio)) * hourPx / 60 - 2);
+          html += '<div class="res ' + (r.propia ? 'propia' : '') + '" data-id="' + esc(r.id_reserva) + '" style="top:' + top + 'px;height:' + alto + 'px" title="' + esc(r.oficina + ' · ' + r.tema) + '">' +
+            '<b>' + r.hora_inicio + '–' + r.hora_fin + '</b>' + esc(r.oficina) + '</div>';
+        });
+        html += '</div>';
+      });
+      html += '</div></div>';
+    });
+    if (!d.dias.length) html += '<div class="vacio">No hay días hábiles configurados.</div>';
+    $('cal').innerHTML = html;
+  }
+
+  function clicCalendario(ev) {
+    const res = ev.target.closest('.res');
+    if (res) {
+      const r = semanaDatos.reservas.filter(x => x.id_reserva === res.dataset.id)[0];
+      if (r) detalleReserva(r);
+      return;
+    }
+    const carril = ev.target.closest('.carril');
+    if (!carril || carril.parentElement.classList.contains('feriado')) return;
+    const rect = carril.getBoundingClientRect();
+    const paso = S.cfg.paso, ap = aMin(semanaDatos.apertura), ci = aMin(semanaDatos.cierre);
+    let ini = ap + Math.floor((ev.clientY - rect.top) / 48 * 60 / paso) * paso;
+    ini = Math.max(ap, Math.min(ini, ci - S.cfg.duracion_min));
+    const fin = Math.min(ini + 60, ci);
+    limpiarForm();
+    elegirSala(carril.dataset.sala); $('fFecha').value = carril.dataset.fecha;
+    $('fInicio').value = aHora(ini); $('fFin').value = aHora(fin);
+    mostrarFormulario(); mostrar('reservar'); programarVerificacion();
+  }
+
+  /* ---------------- Detalle y cancelación ---------------- */
+  function detalleReserva(r) {
+    const filas = [['Código', r.id_reserva], ['Sala', r.sala], ['Fecha', fechaLarga(r.fecha)], ['Horario', r.hora_inicio + ' – ' + r.hora_fin],
+      ['Oficina', r.oficina], ['Tema', r.tema]];
+    if (r.responsable) filas.push(['Responsable', r.responsable]);
+    if (r.correo) filas.push(['Correo', r.correo]);
+    if (r.asistentes) filas.push(['Asistentes', r.asistentes]);
+    if (r.proyector) filas.push(['Proyector', siNo(r.proyector)]);
+    if (r.laptops) filas.push(['Laptops', siNo(r.laptops)]);
+    if (r.reemplaza_a) filas.push(['Con prioridad', 'Reemplazó a ' + r.reemplaza_a]);
+    filas.push(['Estado', r.estado === 'CANCELADA' ? 'Cancelada' : 'Confirmada']);
+    if (r.estado === 'CANCELADA') { filas.push(['Cancelada por', r.cancelado_por || '—']); filas.push(['Motivo', r.motivo_cancelacion || '—']); }
+    let cuerpo = '<table>' + filas.map(f => '<tr><td>' + esc(f[0]) + '</td><td><b>' + esc(f[1]) + '</b></td></tr>').join('') + '</table>';
+    const botones = [{ texto: 'Cerrar', fn: cerrarDialogo }];
+    if (r.puede_cancelar) {
+      cuerpo += '<div class="campo"><label for="motivo">Motivo de la cancelación (opcional)</label><input id="motivo" maxlength="120"></div>';
+      botones.unshift({ texto: 'Cancelar reserva', clase: 'danger', fn: btn => cancelar(r.id_reserva, btn) });
+    }
+    dialogo('Reserva ' + r.id_reserva, cuerpo, botones);
+  }
+
+  function cancelar(id, btn) {
+    btn.disabled = true; btn.textContent = 'Cancelando…';
+    const motivo = ($('motivo') || {}).value || '';
+    api('apiCancelar', id, motivo).then(r => {
+      cerrarDialogo();
+      aviso(r.ok ? 'Reserva ' + id + ' cancelada.' : r.mensaje);
+      semanaDatos = null; misDatos = null; T = null;
+      const vista = document.querySelector('main > section.visible').id;
+      if (vista === 'v-mis') cargarMis(); else if (vista === 'v-calendario') cargarSemana(semanaRef); else if (vista === 'v-admin') cargarAdmin(); else if (vista === 'v-inicio') cargarTablero();
+    }).catch(e => { cerrarDialogo(); errorRed(e); });
+  }
+
+  /* ---------------- Mis reservas ---------------- */
+  function cargarMis() {
+    api('apiMisReservas').then(r => {
+      if (!r.ok) { $('misProximas').innerHTML = '<div class="vacio">' + esc(r.mensaje) + '</div>'; return; }
+      misDatos = r.data;
+      const tarjeta = x => '<div class="card tarjeta ' + (x.estado === 'CANCELADA' ? 'cancelada' : '') + '"><div class="datos"><b>' + esc(x.sala) + ' · ' + esc(fechaLarga(x.fecha)) + ' · ' + x.hora_inicio + '–' + x.hora_fin + '</b>' +
+        '<div><span>' + esc(x.tema) + '</span><span class="mono">' + esc(x.id_reserva) + '</span>' +
+        (x.estado === 'CANCELADA' ? '<span class="etiqueta cancelada">Cancelada</span>' : '<span class="etiqueta ok">Confirmada</span>') +
+        (x.reemplaza_a ? '<span class="etiqueta prioridad">Con prioridad</span>' : '') + '</div></div>' +
+        '<div>' + (x.puede_cancelar ? '<button class="danger" data-c="' + esc(x.id_reserva) + '">Cancelar reserva</button>' : '') + '</div></div>';
+      $('misProximas').innerHTML = misDatos.proximas.length ? misDatos.proximas.map(tarjeta).join('') :
+        '<div class="card vacio">No tienes reservas próximas.</div>';
+      $('misHistorial').innerHTML = misDatos.historial.length ? misDatos.historial.map(tarjeta).join('') :
+        '<div class="card vacio">Aún no hay historial.</div>';
+      document.querySelectorAll('#v-mis button[data-c]').forEach(b => b.addEventListener('click', () => {
+        const x = misDatos.proximas.filter(y => y.id_reserva === b.dataset.c)[0]; if (x) detalleReserva(x);
+      }));
+    }).catch(errorRed);
+  }
+
+  /* ---------------- Administración: reservas ---------------- */
+  function subAdmin(cual, sinCargar) {
+    $('subReservas').classList.toggle('activa', cual === 'reservas');
+    $('subUsuarios').classList.toggle('activa', cual === 'usuarios');
+    $('admReservas').style.display = cual === 'reservas' ? '' : 'none';
+    $('admUsuarios').style.display = cual === 'usuarios' ? '' : 'none';
+    if (sinCargar) return;
+    if (cual === 'reservas') cargarAdmin(); else cargarUsuarios();
+  }
+
+  function cargarAdmin() {
+    const filtros = { desde: $('aDesde').value, hasta: $('aHasta').value, sala: $('aSala').value, estado: $('aEstado').value };
+    $('aTabla').innerHTML = '<div class="cargando">Cargando…</div>';
+    api('apiAdminLista', filtros).then(r => {
+      if (!r.ok) { $('aTabla').innerHTML = '<div class="vacio">' + esc(r.mensaje) + '</div>'; return; }
+      const d = r.data, st = d.stats;
+      $('aDesde').value = d.desde; $('aHasta').value = d.hasta;
+      $('aStats').innerHTML =
+        '<div class="stat"><b>' + st.confirmadas + '</b>reservas confirmadas</div>' +
+        '<div class="stat"><b>' + st.canceladas + '</b>canceladas</div>' +
+        '<div class="stat"><b>' + st.horas_reservadas + ' h</b>reservadas</div>' +
+        '<div class="stat"><b>' + st.ocupacion_pct + '%</b>ocupación del periodo</div>' +
+        (st.top_oficinas.length ? '<div class="stat ancha"><b style="font-size:14px;margin-bottom:4px">Oficinas con más horas</b>' +
+          st.top_oficinas.map(o => esc(o.oficina) + ': ' + o.horas + ' h').join('<br>') + '</div>' : '');
+      if (!d.reservas.length) { $('aTabla').innerHTML = '<div class="vacio">No hay reservas con esos filtros.</div>'; return; }
+      $('aTabla').innerHTML = '<table><thead><tr><th>Fecha</th><th>Horario</th><th>Sala</th><th>Oficina</th><th>Responsable</th><th>Tema</th><th>Equipos</th><th>Estado</th><th></th></tr></thead><tbody>' +
+        d.reservas.map((x, i) => '<tr class="' + (x.estado === 'CANCELADA' ? 'cancelada' : '') + '"><td>' + esc(fechaCorta(x.fecha)) + '</td><td class="mono">' + x.hora_inicio + '–' + x.hora_fin + '</td><td>' + esc(x.sala) +
+          '</td><td>' + esc(x.oficina) + (x.reemplaza_a ? ' <span class="etiqueta prioridad" title="Reemplazó a ' + esc(x.reemplaza_a) + '">Prioridad</span>' : '') +
+          '</td><td>' + esc(x.responsable) + '</td><td>' + esc(x.tema) + '</td><td>' + equipos(x) + '</td><td>' +
+          (x.estado === 'CANCELADA' ? '<span class="etiqueta cancelada">Cancelada</span>' : '<span class="etiqueta ok">Confirmada</span>') + '</td>' +
+          '<td><button class="mini" data-i="' + i + '">Ver</button></td></tr>').join('') + '</tbody></table>' +
+        (d.truncado ? '<p class="ayuda" style="padding:0 16px 12px">Se muestran las primeras 500 de ' + d.total + ' reservas; acota el rango de fechas.</p>' : '');
+      document.querySelectorAll('#aTabla button[data-i]').forEach(b => b.addEventListener('click', () => detalleReserva(d.reservas[+b.dataset.i])));
+    }).catch(errorRed);
+  }
+
+  function equipos(x) {
+    const e = [];
+    if (x.proyector === 'SI') e.push('Proyector');
+    if (x.laptops === 'SI') e.push('Laptops');
+    return e.length ? e.join(', ') : (x.proyector || x.laptops ? 'Ninguno' : '—');
+  }
+
+  /* ---------------- Administración: usuarios ---------------- */
+  const ESTADOS = { SI: ['Activo', 'ok'], NO: ['Inactivo', 'no'], PENDIENTE: ['Pendiente', 'pend'] };
+
+  function cargarUsuarios() {
+    $('uTabla').innerHTML = '<div class="cargando">Cargando…</div>';
+    api('apiAdminUsuarios').then(r => {
+      if (!r.ok) { $('uTabla').innerHTML = '<div class="vacio">' + esc(r.mensaje) + '</div>'; return; }
+      usuariosDatos = r.data.usuarios;
+      pintarPendientes(usuariosDatos.filter(u => u.estado === 'PENDIENTE').length);
+      $('uTabla').innerHTML = '<h2 style="margin-bottom:10px">Usuarios (' + usuariosDatos.length + ')</h2>' +
+        '<table><thead><tr><th>Nombre</th><th>Correo</th><th>Oficina</th><th>Rol</th><th>Estado</th><th>Último acceso</th><th></th></tr></thead><tbody>' +
+        usuariosDatos.map((u, i) => {
+          const e = ESTADOS[u.estado] || ESTADOS.NO;
+          const acciones = u.estado === 'PENDIENTE'
+            ? '<button class="mini okb" data-a="aprobar" data-i="' + i + '">Aprobar</button><button class="mini" data-a="rechazar" data-i="' + i + '">Rechazar</button>'
+            : '<button class="mini" data-a="editar" data-i="' + i + '">Editar</button>' +
+              (u.soy_yo ? '' : '<button class="mini" data-a="clave" data-i="' + i + '">Contraseña</button>' +
+                '<button class="mini" data-a="' + (u.estado === 'SI' ? 'desactivar' : 'activar') + '" data-i="' + i + '">' + (u.estado === 'SI' ? 'Desactivar' : 'Activar') + '</button>');
+          return '<tr class="' + (u.estado === 'PENDIENTE' ? 'pendiente' : u.estado === 'NO' ? 'inactivo' : '') + '">' +
+            '<td><b>' + esc(u.nombre) + '</b>' + (u.soy_yo ? ' <span class="ayuda">(tú)</span>' : '') + '</td><td>' + esc(u.correo) + '</td><td>' + esc(u.oficina) + '</td>' +
+            '<td>' + (u.rol === 'ADMIN' ? '<span class="etiqueta admin">Admin</span>' : 'Usuario') + '</td>' +
+            '<td><span class="etiqueta ' + e[1] + '">' + e[0] + '</span>' + (u.debe_cambiar && u.estado === 'SI' ? '<div class="ayuda">Contraseña temporal</div>' : '') + '</td>' +
+            '<td>' + esc(u.ultimo_acceso ? String(u.ultimo_acceso).slice(0, 16) : '—') + '</td>' +
+            '<td><div class="acciones">' + acciones + '</div></td></tr>';
+        }).join('') + '</tbody></table>';
+      document.querySelectorAll('#uTabla button[data-a]').forEach(b => b.addEventListener('click', () => accionUsuario(b.dataset.a, usuariosDatos[+b.dataset.i])));
+    }).catch(errorRed);
+  }
+
+  function crearUsuario(ev) {
+    ev.preventDefault();
+    const d = { correo: $('nCorreo').value, contrasena: $('nClave').value, nombre: $('nNombre').value, rol: $('nRol').value, oficina: $('nOficina').value, enviar_correo: $('nEnviar').checked };
+    const err = reglaClave(d.contrasena);
+    if (err) return aviso(err);
+    const btn = $('btnCrearUsuario'); btn.disabled = true; btn.textContent = 'Creando…';
+    api('apiAdminCrearUsuario', d).then(r => {
+      btn.disabled = false; btn.textContent = 'Crear usuario';
+      if (!r.ok) return dialogo('No se pudo crear', '<p>' + esc(r.mensaje) + '</p>', [{ texto: 'Entendido', fn: cerrarDialogo }]);
+      const clave = d.contrasena;
+      $('fNuevoUsuario').reset(); $('nEnviar').checked = true; $('nOficina').value = '';
+      dialogo('Usuario creado', '<p>' + esc(r.mensaje) + '</p><table><tr><td>Correo</td><td><b>' + esc(d.correo.trim().toLowerCase()) + '</b></td></tr>' +
+        '<tr><td>Contraseña temporal</td><td><b class="mono">' + esc(clave) + '</b></td></tr></table>' +
+        '<p class="ayuda">Deberá cambiarla al ingresar por primera vez.</p>', [{ texto: 'Listo', clase: 'primary', fn: cerrarDialogo }]);
+      cargarUsuarios();
+    }).catch(e => { btn.disabled = false; btn.textContent = 'Crear usuario'; errorRed(e); });
+  }
+
+  function guardarUsuario(correo, cambios, btn) {
+    if (btn) btn.disabled = true;
+    return api('apiAdminActualizarUsuario', correo, cambios).then(r => {
+      if (btn) btn.disabled = false;
+      if (!r.ok) { aviso(r.mensaje); return false; }
+      cerrarDialogo(); aviso(r.mensaje); cargarUsuarios(); return true;
+    }).catch(e => { if (btn) btn.disabled = false; errorRed(e); });
+  }
+
+  function accionUsuario(accion, u) {
+    if (accion === 'aprobar') return guardarUsuario(u.correo, { estado: 'SI' });
+    if (accion === 'activar') return guardarUsuario(u.correo, { estado: 'SI' });
+    if (accion === 'rechazar' || accion === 'desactivar') {
+      const txt = accion === 'rechazar' ? '¿Rechazar la solicitud de ' : '¿Desactivar la cuenta de ';
+      return dialogo(accion === 'rechazar' ? 'Rechazar solicitud' : 'Desactivar usuario',
+        '<p>' + txt + '<b>' + esc(u.nombre) + '</b> (' + esc(u.correo) + ')? No podrá ingresar al sistema. Sus reservas existentes se mantienen.</p>',
+        [{ texto: 'Volver', fn: cerrarDialogo }, { texto: accion === 'rechazar' ? 'Rechazar' : 'Desactivar', clase: 'danger', fn: b => guardarUsuario(u.correo, { estado: 'NO' }, b) }]);
+    }
+    if (accion === 'editar') {
+      const cuerpo = '<div class="campo"><label for="eNombre">Nombre completo</label><input id="eNombre" maxlength="120" value="' + esc(u.nombre) + '"></div>' +
+        '<div class="campo"><label for="eOficina">Oficina</label><select id="eOficina"></select></div>' +
+        '<div class="campo"><label for="eRol">Rol</label><select id="eRol"' + (u.soy_yo ? ' disabled' : '') + '><option value="USUARIO">Usuario</option><option value="ADMIN">Administrador</option></select></div>' +
+        '<p class="ayuda">Correo: ' + esc(u.correo) + ' (no se puede cambiar; si es necesario, crea un usuario nuevo y desactiva este).</p>';
+      dialogo('Editar usuario', cuerpo, [{ texto: 'Cancelar', fn: cerrarDialogo },
+        { texto: 'Guardar cambios', clase: 'primary', fn: b => guardarUsuario(u.correo, { nombre: $('eNombre').value, oficina: $('eOficina').value, rol: $('eRol').value }, b) }]);
+      $('eRol').value = u.rol;
+      poblarOficinas('eOficina', S.oficinas.map(o => o.oficina), u.oficina);
+      return;
+    }
+    if (accion === 'clave') {
+      const cuerpo = '<p>Asigna una contraseña temporal a <b>' + esc(u.nombre) + '</b>. Deberá cambiarla al ingresar.</p>' +
+        '<div class="campo"><label for="rClave">Contraseña temporal</label><input id="rClave" value="' + generarClave() + '"></div>' +
+        '<label class="check" style="margin-top:10px"><input type="checkbox" id="rEnviar" checked> Enviársela por correo</label>';
+      dialogo('Restablecer contraseña', cuerpo, [{ texto: 'Cancelar', fn: cerrarDialogo }, { texto: 'Restablecer', clase: 'primary', fn: b => {
+        const clave = $('rClave').value, err = reglaClave(clave);
+        if (err) return aviso(err);
+        b.disabled = true;
+        api('apiAdminRestablecerContrasena', u.correo, clave, $('rEnviar').checked).then(r => {
+          b.disabled = false;
+          if (!r.ok) return aviso(r.mensaje);
+          dialogo('Contraseña restablecida', '<p>' + esc(r.mensaje) + '</p><table><tr><td>Correo</td><td><b>' + esc(u.correo) + '</b></td></tr><tr><td>Contraseña temporal</td><td><b class="mono">' + esc(clave) + '</b></td></tr></table>',
+            [{ texto: 'Listo', clase: 'primary', fn: cerrarDialogo }]);
+          cargarUsuarios();
+        }).catch(e => { b.disabled = false; errorRed(e); });
+      } }]);
+    }
+  }
+</script>
+</body>
+</html>
