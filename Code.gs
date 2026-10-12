@@ -103,7 +103,7 @@ const TONOS = {
   ok: { fg: '#1A7049', bg: '#E1F3EA' }, warn: { fg: '#96590A', bg: '#FDF0D9' },
   crit: { fg: '#B8352C', bg: '#FBE5E3' }, info: { fg: '#087686', bg: '#D3EFF4' }
 };
-const VERSION = '4.5';
+const VERSION = '4.6';
 
 /* ============================================================================
  *  1. PUNTOS DE ENTRADA
