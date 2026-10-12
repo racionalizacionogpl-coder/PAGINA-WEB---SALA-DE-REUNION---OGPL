@@ -176,8 +176,12 @@
     .quien span { display:block; font-size:12px; color:var(--on-navy-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .topbar button.icono { background:transparent; border-color:rgba(255,255,255,.22); color:#fff; }
     .topbar button.icono:hover { background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.4); }
-    @media (max-width:1180px) { .quien { display:none; } }
-    @media (max-width:960px) {
+    /* Con 6 pestañas: nada se parte en dos líneas; si falta espacio se oculta primero el nombre del usuario */
+    .topbar .firma, .topbar .usuario, .btn-nueva { flex:none; white-space:nowrap; }
+    .topbar .firma b, .topbar .firma small { white-space:nowrap; }
+    .topbar nav { min-width:0; }
+    @media (max-width:1400px) { .quien { display:none; } .topbar-in { gap:16px; } .topbar nav button { padding:0 11px; } .topbar nav button.activa::after { left:11px; right:11px; } }
+    @media (max-width:1100px) {
       .topbar-in { flex-wrap:wrap; height:auto; padding:10px 16px 0; gap:10px 16px; }
       .topbar .firma { margin-right:auto; }
       .topbar nav { order:3; width:calc(100% + 32px); overflow-x:auto; height:44px; margin:0 -16px; padding:0 8px; scrollbar-width:none; }
