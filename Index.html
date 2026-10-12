@@ -181,7 +181,7 @@
     .topbar .firma b, .topbar .firma small { white-space:nowrap; }
     .topbar nav { min-width:0; }
     @media (max-width:1400px) { .quien { display:none; } .topbar-in { gap:16px; } .topbar nav button { padding:0 11px; } .topbar nav button.activa::after { left:11px; right:11px; } }
-    @media (max-width:1100px) {
+    @media (max-width:1040px) {
       .topbar-in { flex-wrap:wrap; height:auto; padding:10px 16px 0; gap:10px 16px; }
       .topbar .firma { margin-right:auto; }
       .topbar nav { order:3; width:calc(100% + 32px); overflow-x:auto; height:44px; margin:0 -16px; padding:0 8px; scrollbar-width:none; }
@@ -322,7 +322,7 @@
     .rapida-aviso { width:100%; font-size:13px; padding:8px 12px; border-radius:var(--r-s); background:var(--warn-bg); color:var(--warn); text-align:center; }
     /* ---------- Reservar ---------- */
     .reserva-grid { display:grid; grid-template-columns:minmax(0, 1fr) 360px; gap:24px; align-items:start; }
-    @media (max-width:980px) { .reserva-grid { grid-template-columns:1fr; } }
+    @media (max-width:1040px) { .reserva-grid { grid-template-columns:1fr; } }
     .paso { padding:4px 0 20px; }
     .paso + .paso { border-top:1px solid var(--line-soft); padding-top:22px; }
     .paso-tit { display:flex; align-items:center; gap:12px; margin:0 0 16px; font-size:16px; font-weight:700; }
@@ -565,7 +565,6 @@
           <button data-vista="admin" id="tabAdmin" style="display:none">Administración <span class="contador" id="cntPend" style="display:none"></span></button>
         </nav>
         <div class="usuario">
-          <button class="btn-nueva" id="btnNuevaTop"><span data-ico="mas"></span><span class="txt">Nueva reserva</span></button>
           <div class="avatar" id="uAvatar" aria-hidden="true"></div>
           <div class="quien"><b id="uNombre"></b><span id="uOficina"></span></div>
           <button class="icono" id="btnMiClave" title="Cambiar contraseña" aria-label="Cambiar contraseña"><span data-ico="clave"></span></button>
@@ -1099,7 +1098,6 @@
     document.querySelectorAll('#tabs button').forEach(b => b.addEventListener('click', () => mostrar(b.dataset.vista)));
     $('irInicio').addEventListener('click', ev => { ev.preventDefault(); mostrar('inicio'); });
     const nueva = () => { limpiarForm(); mostrarFormulario(); mostrar('reservar'); };
-    $('btnNuevaTop').addEventListener('click', nueva);
     $('heroReservar').addEventListener('click', nueva);
     $('heroCalendario').addEventListener('click', () => mostrar('calendario'));
     $('btnArriba').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
