@@ -20,6 +20,7 @@ const HOJAS = {
   CONFIG: 'Config',
   FERIADOS: 'Feriados',
   OFICINAS: 'Oficinas',
+  USO_RAPIDO: 'UsoRapido',
   LOG: 'Log'
 };
 
@@ -32,6 +33,8 @@ const ENCABEZADOS = {
   Config: ['Clave', 'Valor', 'Descripcion'],
   Feriados: ['Fecha', 'Descripcion'],
   Oficinas: ['Oficina', 'Prioridad', 'Correo', 'Activa'],
+  UsoRapido: ['ID_Uso', 'Sala', 'Oficina', 'Fecha', 'Hora_Inicio', 'Hora_Fin', 'Marca_Inicio', 'Marca_Fin',
+    'Iniciado_Por', 'Correo_Inicio', 'Finalizado_Por', 'Correo_Fin', 'Duracion_Min', 'Estado'],
   Log: ['Fecha', 'Accion', 'Correo', 'Codigo', 'Detalle']
 };
 
@@ -49,6 +52,8 @@ const CONFIG_DEFECTO = [
   ['MINUTOS_SESION', '120', 'Minutos sin actividad tras los cuales se cierra la sesión (máximo 360).'],
   ['PERMITIR_SOLICITUDES', 'SI', 'SI = en la pantalla de ingreso aparece "Crear una cuenta". NO = solo los administradores crean usuarios.'],
   ['REGISTRO_REQUIERE_APROBACION', 'SI', 'SI = la cuenta creada desde la página queda Pendiente hasta que un administrador la apruebe. NO = queda activa de inmediato. En ambos casos se avisa a los administradores.'],
+  ['AVISAR_RESERVA_RAPIDA', 'SI', 'SI = al pulsar INICIO o FIN en Reserva rápida se envía un correo a las 5 oficinas (pestaña Oficinas › Correo) y a CORREOS_NOTIFICACION. NO = sin correo.'],
+  ['CORREOS_RESERVA_RAPIDA', '', 'Correos adicionales (separados por coma) que reciben los avisos de Reserva rápida, p. ej. administración.'],
   ['DOMINIOS_PERMITIDOS', '', 'Dominios de correo aceptados al crear una cuenta desde la página, separados por coma (p. ej. unmsm.edu.pe). Vacío = cualquiera.']
 ];
 
@@ -72,6 +77,17 @@ const OFICINAS_DEFECTO = [
 ];
 
 const ESTADO = { CONFIRMADA: 'CONFIRMADA', CANCELADA: 'CANCELADA' };
+
+// Reserva rápida (uso inmediato por imprevistos): nombre corto que se muestra y oficina de la pestaña Oficinas
+// de la que se toma el correo. `alias` son otros nombres con los que puede figurar la misma oficina.
+const OFICINAS_RAPIDA = [
+  { corta: 'O. Planes y Programas', oficina: 'Oficina de Planes y Programas', alias: [] },
+  { corta: 'O. Presupuesto', oficina: 'Oficina de Presupuesto', alias: [] },
+  { corta: 'O. Racionalización', oficina: 'Oficina de Racionalización', alias: [] },
+  { corta: 'O. Estadística e Informática', oficina: 'Oficina de Estadística e Informática', alias: [] },
+  { corta: 'O. Coordinación de Centros de Producción', oficina: 'Oficina de Coordinación de Producción', alias: ['Oficina de Coordinación de Centros de Producción'] }
+];
+const USO = { EN_USO: 'EN_USO', FINALIZADO: 'FINALIZADO' };
 const DIAS = ['', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
 const DIAS_CORTOS = ['', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
 const ITERACIONES_HASH = 300;
@@ -87,7 +103,7 @@ const TONOS = {
   ok: { fg: '#1A7049', bg: '#E1F3EA' }, warn: { fg: '#96590A', bg: '#FDF0D9' },
   crit: { fg: '#B8352C', bg: '#FBE5E3' }, info: { fg: '#087686', bg: '#D3EFF4' }
 };
-const VERSION = '4.3';
+const VERSION = '4.4';
 
 /* ============================================================================
  *  1. PUNTOS DE ENTRADA
@@ -453,6 +469,15 @@ function apiTablero(token) {
       };
     });
 
+    let activos = [];
+    try { activos = usosActivos_(); } catch (e) { /* sin pestaña UsoRapido todavía */ }
+    if (esHoy) {
+      activos.forEach(u => {
+        const e = estadoSalas.filter(x => x.sala === u.Sala)[0];
+        if (e) { e.estado = 'OCUPADA'; e.rapida = true; e.oficina = u.Oficina; e.hasta = ''; e.desde = u.Hora_Inicio; }
+      });
+    }
+
     const lunes = sumarDias_(dia, 1 - diaSemana_(dia)), domingo = sumarDias_(lunes, 6);
     const minutosSemana = confirmadas.filter(r => r.Fecha_Reserva >= lunes && r.Fecha_Reserva <= domingo)
       .reduce((t, r) => t + aMin_(r.Hora_Fin) - aMin_(r.Hora_Inicio), 0);
@@ -810,6 +835,190 @@ function oficinaValida_(nombre) {
   if (!lista.length) return limpio.length >= 2 ? limpio : '';
   const o = buscarOficina_(limpio, lista);
   return o ? o.Oficina : '';
+}
+
+/* ============================================================================
+ *  3b. RESERVA RÁPIDA (uso inmediato de una sala por imprevistos)
+ *  INICIO marca la sala como en uso por una oficina; FIN la libera. Cada uso queda en la
+ *  pestaña UsoRapido y se avisa por correo a las 5 oficinas y a administración.
+ * ========================================================================== */
+
+/** Estado actual de cada sala para el panel de Reserva rápida. */
+function apiRapidaEstado(token) {
+  return api_('rapida_estado', token, usuario => respuesta_(true, 'EXITO', '', estadoRapida_(usuario)));
+}
+
+/** INICIO: ocupa la sala de inmediato a nombre de una de las 5 oficinas. */
+function apiRapidaIniciar(token, sala, oficinaCorta) {
+  return api_('rapida_inicio', token, usuario => {
+    const salaObj = resolverSala_(sala, leerSalas_());
+    if (!salaObj) return datosInvalidos_(['La sala indicada no existe o no está activa.']);
+    const of = OFICINAS_RAPIDA.filter(o => o.corta === oficinaCorta)[0];
+    if (!of) return datosInvalidos_(['Selecciona la oficina que usará la sala.']);
+
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(20000)) return respuesta_(false, 'ERROR', 'El sistema está atendiendo otra solicitud. Intenta de nuevo en unos segundos.');
+    let uso;
+    try {
+      const activo = usosActivos_().filter(u => u.Sala === salaObj.Sala)[0];
+      if (activo) {
+        return respuesta_(false, 'OCUPADA', 'La ' + salaObj.Sala + ' ya está en uso por ' + activo.Oficina + ' desde las ' + activo.Hora_Inicio + '.',
+          estadoRapida_(usuario));
+      }
+      const ahora = ahora_();
+      const enCurso = reservasDelDia_(ahora.fecha).filter(r => r.Sala === salaObj.Sala &&
+        aMin_(r.Hora_Inicio) <= ahora.min && aMin_(r.Hora_Fin) > ahora.min)[0];
+      if (enCurso) {
+        return respuesta_(false, 'OCUPADA', 'La ' + salaObj.Sala + ' tiene una reserva en curso de ' + enCurso.Oficina_Solicitante +
+          ' hasta las ' + enCurso.Hora_Fin + '.', estadoRapida_(usuario));
+      }
+      uso = {
+        ID_Uso: generarIdUso_(), Sala: salaObj.Sala, Oficina: of.corta, Fecha: ahora.fecha,
+        Hora_Inicio: aHora_(ahora.min), Hora_Fin: '', Marca_Inicio: ahoraTexto_(), Marca_Fin: '',
+        Iniciado_Por: usuario.Nombre, Correo_Inicio: usuario.Correo, Finalizado_Por: '', Correo_Fin: '',
+        Duracion_Min: '', Estado: USO.EN_USO
+      };
+      agregarFila_(HOJAS.USO_RAPIDO, uso);
+      SpreadsheetApp.flush();
+    } finally {
+      lock.releaseLock();
+    }
+    const correo = avisarUsoRapido_('INICIO', uso);
+    return respuesta_(true, 'EXITO', 'La ' + uso.Sala + ' quedó en uso por ' + uso.Oficina + ' desde las ' + uso.Hora_Inicio + '.' +
+      (correo ? ' Se avisó por correo a las oficinas.' : ''), estadoRapida_(usuario));
+  });
+}
+
+/** FIN: libera la sala y registra la duración. Cualquier usuario con sesión puede finalizar. */
+function apiRapidaFinalizar(token, idUso) {
+  return api_('rapida_fin', token, usuario => {
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(20000)) return respuesta_(false, 'ERROR', 'El sistema está atendiendo otra solicitud. Intenta de nuevo en unos segundos.');
+    let uso;
+    try {
+      uso = leerTabla_(HOJAS.USO_RAPIDO).filas.filter(u => u.ID_Uso === String(idUso || '').trim())[0];
+      if (!uso) return respuesta_(false, 'NO_ENCONTRADA', 'No se encontró ese uso de sala. Actualiza la página.', estadoRapida_(usuario));
+      if (uso.Estado !== USO.EN_USO) {
+        return respuesta_(false, 'YA_FINALIZADO', 'La ' + uso.Sala + ' ya había sido liberada' + (uso.Finalizado_Por ? ' por ' + uso.Finalizado_Por : '') + '.',
+          estadoRapida_(usuario));
+      }
+      const fin = fechaActual_();
+      const duracion = Math.max(1, Math.round((fin.getTime() - marcaMs_(uso.Marca_Inicio)) / 60000));
+      const cambios = {
+        Hora_Fin: Utilities.formatDate(fin, TZ, 'HH:mm'), Marca_Fin: Utilities.formatDate(fin, TZ, 'yyyy-MM-dd HH:mm:ss'),
+        Finalizado_Por: usuario.Nombre, Correo_Fin: usuario.Correo, Duracion_Min: duracion, Estado: USO.FINALIZADO
+      };
+      actualizarFila_(HOJAS.USO_RAPIDO, uso._fila, cambios);
+      SpreadsheetApp.flush();
+      Object.assign(uso, cambios);
+    } finally {
+      lock.releaseLock();
+    }
+    const correo = avisarUsoRapido_('FIN', uso);
+    return respuesta_(true, 'EXITO', 'La ' + uso.Sala + ' quedó libre. Tiempo de uso: ' + duracionTexto_(uso.Duracion_Min) + '.' +
+      (correo ? ' Se avisó por correo a las oficinas.' : ''), estadoRapida_(usuario));
+  });
+}
+
+/** Datos del panel: oficinas, sala por sala (libre / en uso / reservada) y la hora del servidor. */
+function estadoRapida_(usuario) {
+  const ahora = ahora_();
+  const activos = usosActivos_();
+  const reservasHoy = reservasDelDia_(ahora.fecha).sort((a, b) => aMin_(a.Hora_Inicio) - aMin_(b.Hora_Inicio));
+  const salas = leerSalas_().map(s => {
+    const o = { sala: s.Sala, capacidad: entero_(s.Capacidad), ubicacion: s.Ubicacion || '', estado: 'LIBRE' };
+    const u = activos.filter(x => x.Sala === s.Sala)[0];
+    const rs = reservasHoy.filter(r => r.Sala === s.Sala);
+    const prox = rs.filter(r => aMin_(r.Hora_Inicio) > ahora.min)[0];
+    if (prox) o.proxima = { hora_inicio: prox.Hora_Inicio, hora_fin: prox.Hora_Fin, oficina: prox.Oficina_Solicitante };
+    if (u) {
+      Object.assign(o, {
+        estado: 'EN_USO', id_uso: u.ID_Uso, oficina: u.Oficina, hora_inicio: u.Hora_Inicio,
+        inicio_ms: marcaMs_(u.Marca_Inicio), iniciado_por: u.Iniciado_Por
+      });
+    } else {
+      const r = rs.filter(x => aMin_(x.Hora_Inicio) <= ahora.min && aMin_(x.Hora_Fin) > ahora.min)[0];
+      if (r) Object.assign(o, { estado: 'RESERVADA', oficina: r.Oficina_Solicitante, hora_inicio: r.Hora_Inicio, hora_fin: r.Hora_Fin });
+    }
+    return o;
+  });
+  return {
+    oficinas: OFICINAS_RAPIDA.map(x => x.corta),
+    mi_oficina: oficinaRapidaDe_(usuario && usuario.Oficina),
+    salas: salas, servidor_ms: fechaActual_().getTime(), hora: aHora_(ahora.min)
+  };
+}
+
+function usosActivos_() {
+  if (!libro_().getSheetByName(HOJAS.USO_RAPIDO)) throw new Error('Falta la pestaña "' + HOJAS.USO_RAPIDO + '". Ejecuta setup().');
+  return leerTabla_(HOJAS.USO_RAPIDO).filas.filter(u => u.Estado === USO.EN_USO);
+}
+
+/** Nombre corto (O. …) de la oficina del usuario, o '' si no es una de las 5. */
+function oficinaRapidaDe_(nombre) {
+  const clave = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+  const k = clave(nombre);
+  if (!k) return '';
+  const o = OFICINAS_RAPIDA.filter(x => [x.corta, x.oficina].concat(x.alias).some(n => clave(n) === k))[0];
+  return o ? o.corta : '';
+}
+
+/** Correos que reciben los avisos de Reserva rápida: las 5 oficinas, encargados generales y adicionales. */
+function correosRapida_(cfg) {
+  const lista = [];
+  const agregar = s => String(s || '').split(/[,;]/).map(x => x.trim().toLowerCase()).filter(Boolean)
+    .forEach(x => { if (lista.indexOf(x) === -1) lista.push(x); });
+  const oficinas = leerOficinas_();
+  OFICINAS_RAPIDA.forEach(x => {
+    [x.oficina].concat(x.alias).forEach(n => { const o = buscarOficina_(n, oficinas); if (o) agregar(o.Correo); });
+  });
+  agregar(cfg.CORREOS_NOTIFICACION);
+  agregar(cfg.CORREOS_RESERVA_RAPIDA);
+  return lista;
+}
+
+/** Correo de INICIO o FIN de una Reserva rápida. Devuelve true si se envió. Nunca lanza errores. */
+function avisarUsoRapido_(tipo, u) {
+  try {
+    const cfg = leerConfig_();
+    if (!esSi_(cfg.AVISAR_RESERVA_RAPIDA)) return false;
+    const para = correosRapida_(cfg);
+    if (!para.length) return false;
+    const inicio = tipo === 'INICIO';
+    const filas = [['Sala', u.Sala], ['Oficina', u.Oficina], ['Fecha', fechaLarga_(u.Fecha)], ['Inicio', u.Hora_Inicio + ' h'],
+      ['Iniciado por', u.Iniciado_Por + ' (' + u.Correo_Inicio + ')']];
+    if (!inicio) {
+      filas.push(['Fin', u.Hora_Fin + ' h'], ['Tiempo de uso', duracionTexto_(u.Duracion_Min)], ['Finalizado por', u.Finalizado_Por + ' (' + u.Correo_Fin + ')']);
+    }
+    const texto = inicio
+      ? '<p style="margin:0 0 8px">La <b>' + escaparHtml_(u.Sala) + '</b> se está usando ahora mismo por una reserva rápida.</p>'
+      : '<p style="margin:0 0 8px">La <b>' + escaparHtml_(u.Sala) + '</b> ya está libre.</p>';
+    const html = htmlCorreo_(cfg, inicio ? 'warn' : 'ok', inicio ? 'Sala en uso' : 'Sala liberada',
+      texto + tablaCorreo_(filas) + botonCorreo_('Ver el estado de las salas', urlAplicacion_()));
+    const asunto = '[Reserva rápida] ' + u.Sala + (inicio ? ' en uso por ' : ' liberada por ') + u.Oficina + ' · ' +
+      (inicio ? u.Hora_Inicio : u.Hora_Fin);
+    enviarCorreoHtml_(para.join(','), asunto, html, [], cfg);
+    return true;
+  } catch (e) {
+    logCorreoFallido_('rapida_' + tipo, u && u.Correo_Inicio, 'oficinas', e);
+    return false;
+  }
+}
+
+/** ID correlativo por día: USO-AAMMDD-NNN (se llama dentro del bloqueo). */
+function generarIdUso_() {
+  const prefijo = 'USO-' + Utilities.formatDate(fechaActual_(), TZ, 'yyMMdd') + '-';
+  let max = 0;
+  leerTabla_(HOJAS.USO_RAPIDO).filas.forEach(u => {
+    const id = String(u.ID_Uso);
+    if (id.indexOf(prefijo) === 0) max = Math.max(max, parseInt(id.slice(prefijo.length), 10) || 0);
+  });
+  return prefijo + ('00' + (max + 1)).slice(-3);
+}
+
+/** 'yyyy-MM-dd HH:mm:ss' (hora de Lima) → milisegundos. */
+function marcaMs_(texto) {
+  return Utilities.parseDate(String(texto), TZ, 'yyyy-MM-dd HH:mm:ss').getTime();
 }
 
 /* ============================================================================

@@ -287,6 +287,35 @@
     .regresiva .btn-nueva { margin-top:16px; }
     @media (max-width:900px) { .regresiva { grid-template-columns:1fr; padding:28px 22px; } .circulos { gap:8px; } .circulo { width:64px; height:64px; border-width:2px; } .circulo b { font-size:22px; } .circulo span { font-size:10px; } }
 
+    /* ---------- Reserva rápida ---------- */
+    .rapida-barra { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:16px; color:var(--ink-muted); font-size:14px; }
+    .rapida-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:24px; margin-bottom:16px; }
+    .rapida-card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-l); overflow:hidden; box-shadow:var(--sombra); display:flex; flex-direction:column; }
+    .rapida-card.en-uso { border-color:#E8B44A; }
+    .rapida-cab { background:var(--navy-900); color:#fff; padding:14px 20px; font-family:var(--f-display); font-weight:800; font-size:15px; letter-spacing:.06em; text-transform:uppercase; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .rapida-cuerpo { padding:20px; display:flex; flex-direction:column; align-items:center; gap:16px; flex:1; }
+    .rapida-rot { font-family:var(--f-display); font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-muted); margin:0; text-align:center; }
+    .oficinas-rapida { display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:8px; width:100%; }
+    .oficinas-rapida button { grid-column:span 2; padding:8px 6px; font-size:13px; line-height:1.25; min-height:48px; border:2px solid var(--line); text-align:center; }
+    .oficinas-rapida button:nth-child(4) { grid-column:2 / span 2; }
+    .oficinas-rapida button.sel { border-color:var(--teal-600); background:var(--teal-100); color:var(--teal-700); }
+    @media (max-width:420px) { .oficinas-rapida { grid-template-columns:1fr 1fr; } .oficinas-rapida button, .oficinas-rapida button:nth-child(4) { grid-column:auto; } .oficinas-rapida button:last-child { grid-column:span 2; } }
+    .btn-circulo { width:112px; height:112px; border-radius:50%; padding:0; font-family:var(--f-display); font-size:18px; font-weight:800; letter-spacing:.08em; color:#fff; border:4px solid rgba(255,255,255,.65); box-shadow:0 0 0 3px currentColor, 0 8px 22px rgba(11,29,58,.22); justify-content:center; }
+    .btn-circulo.inicio { background:#1F9D55; color:#fff; box-shadow:0 0 0 3px #1F9D55, 0 8px 22px rgba(31,157,85,.35); }
+    .btn-circulo.inicio:hover:not(:disabled) { background:#178246; border-color:rgba(255,255,255,.65); }
+    .btn-circulo.fin { background:#D93A2F; color:#fff; box-shadow:0 0 0 3px #D93A2F, 0 8px 22px rgba(217,58,47,.35); }
+    .btn-circulo.fin:hover:not(:disabled) { background:#B92E25; border-color:rgba(255,255,255,.65); }
+    .btn-circulo:disabled { background:#9AA6B6; box-shadow:0 0 0 3px #9AA6B6; opacity:1; }
+    .uso-oficina { font-family:var(--f-display); font-size:20px; font-weight:800; text-align:center; margin:0; color:var(--ink); }
+    .uso-fila { display:flex; align-items:center; justify-content:center; gap:28px; flex-wrap:wrap; width:100%; }
+    .en-uso-ind { display:inline-flex; align-items:center; gap:8px; font-weight:700; color:var(--warn); }
+    .en-uso-ind i { width:14px; height:14px; border-radius:50%; background:#F2C230; border:2px solid #B88A0B; animation:latido 1.6s ease-in-out infinite; }
+    @keyframes latido { 50% { box-shadow:0 0 0 6px rgba(242,194,48,.28); } }
+    @media (prefers-reduced-motion: reduce) { .en-uso-ind i { animation:none; } }
+    .cronometro { font-family:var(--f-mono); font-size:30px; font-variant-numeric:tabular-nums; color:var(--ink); }
+    .rapida-det { font-size:13px; color:var(--ink-muted); text-align:center; margin:0; }
+    .rapida-foto { width:100%; aspect-ratio:16/9; max-height:220px; background:var(--navy-700) center/cover; border-radius:var(--r-m); display:grid; place-items:center; color:var(--on-navy-muted); font-size:40px; }
+    .rapida-aviso { width:100%; font-size:13px; padding:8px 12px; border-radius:var(--r-s); background:var(--warn-bg); color:var(--warn); text-align:center; }
     /* ---------- Reservar ---------- */
     .reserva-grid { display:grid; grid-template-columns:minmax(0, 1fr) 360px; gap:24px; align-items:start; }
     @media (max-width:980px) { .reserva-grid { grid-template-columns:1fr; } }
@@ -525,6 +554,7 @@
         </a>
         <nav id="tabs" aria-label="Secciones">
           <button data-vista="inicio" class="activa">Inicio</button>
+          <button data-vista="rapida">Reserva rápida</button>
           <button data-vista="reservar">Reservar</button>
           <button data-vista="calendario">Calendario</button>
           <button data-vista="mis">Mis reservas</button>
@@ -571,6 +601,20 @@
         </div>
       </section>
 
+      <!-- ============ RESERVA RÁPIDA ============ -->
+      <section id="v-rapida">
+        <div class="franja"><div class="envoltura">
+          <p class="rotulo">Uso inmediato</p>
+          <h1>Reserva rápida</h1>
+          <p class="sub">Para imprevistos o reuniones de último momento: elige tu oficina y pulsa <b>INICIO</b>. La sala queda ocupada al instante; al terminar pulsa <b>FIN</b> para liberarla.</p>
+        </div></div>
+        <div class="envoltura contenido">
+          <div class="rapida-barra"><span id="rapidaHora"></span><button class="mini" id="rapidaActualizar"><span data-ico="reloj"></span>Actualizar</button></div>
+          <div class="rapida-grid" id="rapidaGrid"><div class="cargando">Cargando…</div></div>
+          <p class="ayuda" id="rapidaNota">Al pulsar INICIO o FIN se avisa por correo a las oficinas de la OGPL. Cada uso queda registrado en la pestaña <b>UsoRapido</b> de la hoja.</p>
+        </div>
+      </section>
+
       <!-- ============ RESERVAR ============ -->
       <section id="v-reservar">
         <div class="franja"><div class="envoltura">
@@ -590,8 +634,8 @@
                 <h3 class="paso-tit"><span class="n">2</span>Fecha y horario</h3>
                 <div class="grid">
                   <div><label for="fFecha">Fecha</label><input type="date" id="fFecha"></div>
-                  <div><label for="fInicio">Hora de inicio</label><select id="fInicio"></select></div>
-                  <div><label for="fFin">Hora de fin</label><select id="fFin"></select></div>
+                  <div><label for="fInicio">Hora de inicio</label><input type="text" id="fInicio" class="hora" list="lHorasInicio" inputmode="numeric" autocomplete="off" placeholder="hh:mm (ej. 08:45)" maxlength="8"><datalist id="lHorasInicio"></datalist></div>
+                  <div><label for="fFin">Hora de fin</label><input type="text" id="fFin" class="hora" list="lHorasFin" inputmode="numeric" autocomplete="off" placeholder="hh:mm (ej. 10:15)" maxlength="8"><datalist id="lHorasFin"></datalist></div>
                 </div>
                 <div class="chips" id="duraciones" aria-label="Duraciones rápidas"></div>
               </div>
@@ -802,6 +846,17 @@
   const fechaLarga = f => DIAS[dow(f)] + ' ' + f.slice(8, 10) + '/' + f.slice(5, 7) + '/' + f.slice(0, 4);
   const fechaCorta = f => f.slice(8, 10) + '/' + f.slice(5, 7);
   const durTxt = m => (m >= 60 ? Math.floor(m / 60) + ' h' : '') + (m % 60 ? (m >= 60 ? ' ' : '') + (m % 60) + ' min' : '');
+  /** Hora escrita a mano → 'hh:mm' ('' si no es válida). Acepta 8:45, 0845, 845, 8.45, 8h45, 14, 2:30 pm. */
+  function normHora(v) {
+    const t = String(v || '').trim().toLowerCase().replace(/\s+/g, '').replace(/(hrs?|horas)$/, '').replace(/[.h]/g, ':').replace(/:$/, '');
+    let m = t.match(/^(\d{1,2})(?::(\d{1,2}))?(am|pm|a:m|p:m)?$/) || t.match(/^(\d{1,2})(\d{2})(am|pm)?$/);
+    if (!m) return '';
+    let h = +m[1]; const mi = m[2] ? +m[2] : 0; const suf = (m[3] || '').replace(/:/g, '');
+    if (suf === 'pm' && h < 12) h += 12;
+    if (suf === 'am' && h === 12) h = 0;
+    if (h > 23 || mi > 59) return '';
+    return String(h).padStart(2, '0') + ':' + String(mi).padStart(2, '0');
+  }
   const siNo = v => (v === 'SI' ? 'Sí' : v === 'NO' ? 'No' : '');
   const reglaClave = pw => (pw.length < 8 ? 'La contraseña debe tener al menos 8 caracteres.' :
     (!/[A-Za-zÁÉÍÓÚáéíóúÑñ]/.test(pw) || !/\d/.test(pw)) ? 'La contraseña debe combinar letras y números.' : '');
@@ -866,7 +921,7 @@
 
   function cerrarSesionLocal(msg) {
     guardarToken('');
-    S = null; T = null; detenerRegresiva(); cerrarDialogo();
+    S = null; T = null; R = null; detenerRegresiva(); detenerRapida(); cerrarDialogo();
     $('fLogin').reset(); mensaje('loginMsg', 'info', msg || '');
     mostrarPantalla('login');
     // Solo enfoca el correo si nadie está escribiendo ya (evita mover el cursor mientras se escribe o autocompleta)
@@ -966,6 +1021,7 @@
     if (f) document.documentElement.style.setProperty('--foto-acceso', 'url("' + f + '")');
     if (S) { construirSelectorSalas(); actualizarResumen(); }
     if (T) pintInicio();
+    if (R && $('v-rapida').classList.contains('visible')) pintarRapida();
   }
 
   function arrancar() {
@@ -1046,6 +1102,8 @@
     $('salasGrid').addEventListener('click', clicSalas);
     $('ahora').addEventListener('click', clicSalas);
     $('regresiva').addEventListener('click', ev => { if (ev.target.closest('#regReservar')) nueva(); });
+    $('rapidaGrid').addEventListener('click', clicRapida);
+    $('rapidaActualizar').addEventListener('click', () => cargarRapida());
 
     // Formulario de reserva
     $('selectorSalas').addEventListener('click', ev => {
@@ -1053,6 +1111,12 @@
       elegirSala(b.dataset.sala); programarVerificacion();
     });
     ['fFecha', 'fInicio', 'fFin'].forEach(id => $(id).addEventListener('change', programarVerificacion));
+    // Las horas se pueden escribir (8:45, 845, 8.45, 14h10, 2:30 pm) o elegir de la lista; se normalizan a hh:mm
+    ['fInicio', 'fFin'].forEach(id => {
+      const el = $(id);
+      el.addEventListener('change', () => { const h = normHora(el.value); if (h) el.value = h; }, true);
+      el.addEventListener('blur', () => { const h = normHora(el.value); if (h && h !== el.value) { el.value = h; programarVerificacion(); } });
+    });
     // Los asistentes solo afectan la advertencia de capacidad: se refresca sin bloquear el botón
     // (si no, el clic en "Reservar" justo después de escribir se perdería).
     $('fAsistentes').addEventListener('change', () => {
@@ -1063,8 +1127,10 @@
     $('fTema').addEventListener('input', actualizarResumen);
     $('duraciones').addEventListener('click', e => {
       const b = e.target.closest('button[data-d]'); if (!b) return;
-      if (!$('fInicio').value) { aviso('Primero elige la hora de inicio.'); return; }
-      const fin = aMin($('fInicio').value) + (+b.dataset.d);
+      const hi = normHora($('fInicio').value);
+      if (!hi) { aviso('Primero elige o escribe la hora de inicio.'); return; }
+      $('fInicio').value = hi;
+      const fin = aMin(hi) + (+b.dataset.d);
       if (fin > aMin(S.cfg.cierre)) { aviso('Esa duración pasa del horario de cierre (' + S.cfg.cierre + ').'); return; }
       $('fFin').value = aHora(fin);
       programarVerificacion();
@@ -1148,7 +1214,9 @@
     document.querySelectorAll('main > section').forEach(s => s.classList.toggle('visible', s.id === 'v-' + vista));
     window.scrollTo(0, 0);
     if (vista !== 'inicio') detenerRegresiva();
+    if (vista !== 'rapida') detenerRapida();
     if (vista === 'inicio') cargarTablero();
+    if (vista === 'rapida') cargarRapida();
     if (vista === 'calendario') cargarSemana(semanaRef || S.hoy);
     if (vista === 'mis') cargarMis();
     if (vista === 'admin') { if ($('admUsuarios').style.display === 'none') cargarAdmin(); else cargarUsuarios(); }
@@ -1166,6 +1234,7 @@
 
   function estadoSala(s) {
     if (!T.es_hoy) return { cls: 'idle', txt: 'Fuera de horario', det: s.reservas.length ? s.reservas.length + ' reserva(s) el ' + fechaCorta(T.dia) : 'Libre todo el ' + fechaCorta(T.dia) };
+    if (s.estado === 'OCUPADA' && s.rapida) return { cls: 'warn', txt: 'En uso', det: 'Reserva rápida desde las ' + s.desde + ' · ' + s.oficina };
     if (s.estado === 'OCUPADA') return { cls: 'crit', txt: 'Ocupada', det: 'Hasta las ' + s.hasta + (s.oficina ? ' · ' + s.oficina : '') };
     return { cls: 'ok', txt: 'Libre', det: s.hasta === S.cfg.cierre ? 'Libre hasta el cierre (' + s.hasta + ')' : 'Libre hasta las ' + s.hasta };
   }
@@ -1251,6 +1320,105 @@
     }
   }
 
+  /* ---------------- Reserva rápida: INICIO / FIN ---------------- */
+  let R = null;                 // estado de apiRapidaEstado
+  let rapidaTick = null, rapidaPoll = null, rapidaOffset = 0, rapidaOcupado = false;
+  const rapidaSel = {};         // oficina elegida por sala
+  const SUFIJO_SALA = ['Principal', 'Secundaria'];
+
+  function cargarRapida(silencioso) {
+    if (!silencioso && !R) $('rapidaGrid').innerHTML = '<div class="cargando">Cargando…</div>';
+    if (!rapidaPoll) rapidaPoll = setInterval(() => { if (!rapidaOcupado && !document.hidden) cargarRapida(true); }, 20000);
+    return api('apiRapidaEstado').then(r => {
+      if (!r.ok) { $('rapidaGrid').innerHTML = '<div class="vacio">' + esc(r.mensaje) + '</div>'; return; }
+      aplicarRapida(r.data);
+    }).catch(e => { if (!silencioso) errorRed(e); });
+  }
+
+  function aplicarRapida(d) {
+    R = d; rapidaOffset = d.servidor_ms - Date.now();
+    if ($('v-rapida').classList.contains('visible')) pintarRapida();
+  }
+
+  function pintarRapida() {
+    if (!R) return;
+    $('rapidaHora').textContent = 'Estado actualizado a las ' + R.hora;
+    $('rapidaGrid').innerHTML = R.salas.map((s, i) => {
+      const foto = fotosDe(s.sala)[0];
+      const titulo = s.sala + (SUFIJO_SALA[i] ? ' – ' + SUFIJO_SALA[i] : '');
+      const fotoHtml = '<div class="rapida-foto" style="' + (foto ? 'background-image:url(\'' + foto + '\')' : '') + '" role="img" aria-label="Foto de la ' + esc(s.sala) + '">' + (foto ? '' : ico('sala')) + '</div>';
+      const prox = s.proxima ? '<div class="rapida-aviso">Próxima reserva programada: <b>' + s.proxima.hora_inicio + '–' + s.proxima.hora_fin + '</b> · ' + esc(s.proxima.oficina) + '</div>' : '';
+      let cuerpo, pill;
+      if (s.estado === 'EN_USO') {
+        pill = '<span class="pill warn">En uso</span>';
+        cuerpo = '<p class="rapida-rot">Oficina</p><p class="uso-oficina">' + esc(s.oficina) + '</p>' +
+          '<div class="uso-fila"><span class="en-uso-ind"><i aria-hidden="true"></i>En uso</span>' +
+          '<button class="btn-circulo fin" data-fin="' + esc(s.id_uso) + '" data-sala="' + esc(s.sala) + '" aria-label="Finalizar el uso de la ' + esc(s.sala) + '">FIN</button></div>' +
+          '<div class="cronometro" data-desde="' + s.inicio_ms + '" aria-label="Tiempo de uso">00:00:00</div>' +
+          '<p class="rapida-det">Desde las ' + s.hora_inicio + ' · iniciado por ' + esc(s.iniciado_por) + '</p>';
+      } else if (s.estado === 'RESERVADA') {
+        pill = '<span class="pill crit">Reservada</span>';
+        cuerpo = '<p class="rapida-rot">Reserva programada en curso</p><p class="uso-oficina">' + esc(s.oficina) + '</p>' +
+          '<button class="btn-circulo inicio" disabled>INICIO</button>' +
+          '<p class="rapida-det">Ocupada de ' + s.hora_inicio + ' a ' + s.hora_fin + '. Podrás usarla cuando termine.</p>';
+      } else {
+        pill = '<span class="pill ok">Libre</span>';
+        const sel = rapidaSel[s.sala] !== undefined ? rapidaSel[s.sala] : (R.mi_oficina || '');
+        rapidaSel[s.sala] = sel;
+        cuerpo = '<p class="rapida-rot">Oficina</p>' +
+          '<div class="oficinas-rapida" role="radiogroup" aria-label="Oficina que usará la ' + esc(s.sala) + '">' +
+          R.oficinas.map(o => '<button type="button" role="radio" aria-checked="' + (o === sel) + '" class="' + (o === sel ? 'sel' : '') + '" data-oficina="' + esc(o) + '" data-sala="' + esc(s.sala) + '">' + esc(o) + '</button>').join('') + '</div>' +
+          '<button class="btn-circulo inicio" data-inicio="' + esc(s.sala) + '"' + (sel ? '' : ' disabled') + ' aria-label="Iniciar el uso de la ' + esc(s.sala) + '">INICIO</button>' +
+          '<p class="rapida-det">' + (sel ? 'Se registrará a nombre de <b>' + esc(sel) + '</b>.' : 'Primero selecciona tu oficina.') + '</p>';
+      }
+      return '<article class="rapida-card ' + (s.estado === 'EN_USO' ? 'en-uso' : '') + '"><div class="rapida-cab"><span>' + esc(titulo) + '</span>' + pill + '</div>' +
+        '<div class="rapida-cuerpo">' + cuerpo + prox + fotoHtml + '</div></article>';
+    }).join('') || '<div class="vacio">No hay salas activas.</div>';
+    if (rapidaTick) clearInterval(rapidaTick);
+    const tick = () => {
+      document.querySelectorAll('#rapidaGrid .cronometro').forEach(c => {
+        const s = Math.max(0, Math.floor((Date.now() + rapidaOffset - (+c.dataset.desde)) / 1000));
+        c.textContent = [Math.floor(s / 3600), Math.floor(s % 3600 / 60), s % 60].map(n => String(n).padStart(2, '0')).join(':');
+      });
+    };
+    tick();
+    rapidaTick = setInterval(tick, 1000);
+  }
+
+  function detenerRapida() {
+    if (rapidaTick) { clearInterval(rapidaTick); rapidaTick = null; }
+    if (rapidaPoll) { clearInterval(rapidaPoll); rapidaPoll = null; }
+  }
+
+  function clicRapida(ev) {
+    const of = ev.target.closest('[data-oficina]');
+    if (of) { rapidaSel[of.dataset.sala] = of.dataset.oficina; pintarRapida(); return; }
+    const ini = ev.target.closest('[data-inicio]');
+    if (ini && !ini.disabled) {
+      const sala = ini.dataset.inicio, oficina = rapidaSel[sala];
+      if (!oficina) { aviso('Primero selecciona tu oficina.'); return; }
+      accionRapida(ini, 'Iniciando…', api('apiRapidaIniciar', sala, oficina));
+      return;
+    }
+    const fin = ev.target.closest('[data-fin]');
+    if (fin) {
+      dialogo('Liberar la ' + fin.dataset.sala, '<p>Se detendrá el tiempo y la sala quedará libre para otras oficinas.</p>', [
+        { texto: 'Volver', fn: cerrarDialogo },
+        { texto: 'Finalizar y liberar', clase: 'danger', fn: () => { cerrarDialogo(); accionRapida(fin, '…', api('apiRapidaFinalizar', fin.dataset.fin)); } }
+      ]);
+    }
+  }
+
+  function accionRapida(btn, texto, promesa) {
+    rapidaOcupado = true; btn.disabled = true; btn.textContent = texto;
+    promesa.then(r => {
+      rapidaOcupado = false;
+      aviso(r.mensaje);
+      if (r.data && r.data.salas) aplicarRapida(r.data); else cargarRapida(true);
+      T = null; // el tablero de Inicio se recarga con el nuevo estado
+    }).catch(e => { rapidaOcupado = false; errorRed(e); cargarRapida(true); });
+  }
+
   /* ---------------- Inicio: cuenta regresiva a tu próxima reunión ---------------- */
   function pintarRegresiva() {
     detenerRegresiva();
@@ -1329,12 +1497,12 @@
 
   function poblarHoras() {
     const ap = aMin(S.cfg.apertura), ci = aMin(S.cfg.cierre), p = S.cfg.paso;
-    let oi = '<option value="">Selecciona</option>', of = oi;
+    let oi = '', of = '';
     for (let t = ap; t <= ci; t += p) {
       if (t + S.cfg.duracion_min <= ci) oi += '<option value="' + aHora(t) + '">' + aHora(t) + '</option>';
       if (t > ap) of += '<option value="' + aHora(t) + '">' + aHora(t) + '</option>';
     }
-    $('fInicio').innerHTML = oi; $('fFin').innerHTML = of;
+    $('lHorasInicio').innerHTML = oi; $('lHorasFin').innerHTML = of;
   }
 
   function poblarDuraciones() {
@@ -1344,7 +1512,8 @@
 
   function leerForm() {
     return {
-      sala: $('fSala').value, fecha: $('fFecha').value, hora_inicio: $('fInicio').value, hora_fin: $('fFin').value,
+      sala: $('fSala').value, fecha: $('fFecha').value,
+      hora_inicio: normHora($('fInicio').value) || $('fInicio').value.trim(), hora_fin: normHora($('fFin').value) || $('fFin').value.trim(),
       tema: $('fTema').value.trim(), asistentes: $('fAsistentes').value ? +$('fAsistentes').value : 0,
       proyector: valorRadio('proyector'), laptops: valorRadio('laptops')
     };
@@ -1373,6 +1542,7 @@
       mostrarEstado('info', 'Completa fecha, hora de inicio y hora de fin para ver la disponibilidad.');
       return;
     }
+    if (!normHora(f.hora_inicio) || !normHora(f.hora_fin)) return mostrarEstado('err', 'Escribe la hora en formato hh:mm, por ejemplo 08:45 o 14:10.');
     const feriado = S.feriados.filter(x => x.fecha === f.fecha)[0];
     if (f.fecha < S.hoy) return mostrarEstado('err', 'La fecha no puede ser anterior a hoy.');
     if (f.fecha > S.limite) return mostrarEstado('err', 'Solo se puede reservar con hasta ' + S.cfg.anticipacion_max_dias + ' días de anticipación.');

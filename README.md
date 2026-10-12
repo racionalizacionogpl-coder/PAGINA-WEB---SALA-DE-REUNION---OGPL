@@ -1,4 +1,4 @@
-# Reserva de Salas – OGPL UNMSM (v4.3: diseño corporativo según el Manual de Marca Gestión)
+# Reserva de Salas – OGPL UNMSM (v4.4: Reserva rápida y horas escritas a mano)
 
 Página web publicada desde Google Apps Script. Cada persona ingresa con su **correo y contraseña**, completa el formulario y la reserva queda en Google Sheets. Al reservar o cancelar se envía un correo con el encabezado **"Oficina General de Planificación – UNMSM"** y el escudo de la universidad.
 
@@ -14,6 +14,23 @@ asistente-reservas-ogpp/
 ├── tests/                       Pruebas automáticas (44 de backend + 24 pasos en navegador)
 └── pospuesto-whatsapp/          Versión con WhatsApp y n8n (archivada, no se usa)
 ```
+
+---
+
+## Novedades de la v4.4
+
+| Cambio | Detalle |
+| --- | --- |
+| **Reserva rápida** (nueva pestaña junto a *Inicio*) | Una tarjeta por sala con foto y las 5 oficinas (O. Planes y Programas, O. Presupuesto, O. Racionalización, O. Estadística e Informática, O. Coordinación de Centros de Producción). **Libre:** se elige la oficina y se pulsa **INICIO** (verde); la sala queda ocupada al instante y arranca el cronómetro. **En uso:** indicador amarillo, nombre de la oficina y botón **FIN** (rojo), que detiene el tiempo y libera la sala. El panel se actualiza solo cada 20 s. |
+| **Correos de Reserva rápida** | Al pulsar INICIO o FIN se envía un correo solo a los correos de las 5 oficinas (pestaña `Oficinas` › `Correo`), a `CORREOS_NOTIFICACION` y a `CORREOS_RESERVA_RAPIDA`. Se desactiva con `Config › AVISAR_RESERVA_RAPIDA = NO`. |
+| **Registro** | Nueva pestaña `UsoRapido`: sala, oficina, hora de inicio y fin, quién inició y quién finalizó, y duración en minutos. |
+| **Horas escritas a mano** | En *Reservar*, la hora de inicio y de fin se pueden escribir (8:45, 845, 8.45, 2:30 pm) o elegir de la lista. Se normalizan a hh:mm. |
+
+Reglas de la Reserva rápida:
+- No se puede iniciar si la sala ya está en uso o tiene una reserva programada en curso. Si hay una reserva programada más tarde, la tarjeta la muestra como aviso.
+- Cualquier usuario con sesión puede pulsar FIN (útil si la oficina olvidó liberarla); queda registrado quién lo hizo.
+- En *Inicio*, una sala en Reserva rápida aparece como **En uso**.
+- **Al actualizar:** pega `Code.gs` e `Index.html`, ejecuta `setup()` (crea `UsoRapido` y las claves nuevas de `Config`) y publica una **Nueva versión**. Completa el `Correo` de cada oficina en la pestaña `Oficinas`.
 
 ---
 
