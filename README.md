@@ -21,7 +21,7 @@ asistente-reservas-ogpp/
 
 | Cambio | Detalle |
 | --- | --- |
-| **Reserva rápida** (nueva pestaña junto a *Inicio*) | Una tarjeta por sala con foto y las 5 oficinas (O. Planes y Programas, O. Presupuesto, O. Racionalización, O. Estadística e Informática, O. Coordinación de Centros de Producción). **Libre:** se elige la oficina y se pulsa **INICIO** (verde); la sala queda ocupada al instante y arranca el cronómetro. **En uso:** indicador amarillo, nombre de la oficina y botón **FIN** (rojo), que detiene el tiempo y libera la sala. El panel se actualiza solo cada 20 s. |
+| **Reserva rápida** (nueva pestaña junto a *Inicio*) | Una tarjeta por sala con foto y las 6 oficinas (O. General de Planificación, O. Planes y Programas, O. Presupuesto, O. Racionalización, O. Estadística e Informática, O. Coordinación de Centros de Producción). **Libre:** se elige la oficina y se pulsa **INICIO** (verde); la sala queda ocupada al instante y arranca el cronómetro. **En uso:** indicador amarillo, nombre de la oficina y botón **FIN** (rojo), que detiene el tiempo y libera la sala. El panel se actualiza solo cada 20 s. |
 | **Correos de Reserva rápida** | Al pulsar INICIO o FIN se envía un correo solo a los correos de las 5 oficinas (pestaña `Oficinas` › `Correo`), a `CORREOS_NOTIFICACION` y a `CORREOS_RESERVA_RAPIDA`. Se desactiva con `Config › AVISAR_RESERVA_RAPIDA = NO`. |
 | **Registro** | Nueva pestaña `UsoRapido`: sala, oficina, hora de inicio y fin, quién inició y quién finalizó, y duración en minutos. |
 | **Horas escritas a mano** | En *Reservar*, la hora de inicio y de fin se pueden escribir (8:45, 845, 8.45, 2:30 pm) o elegir de la lista. Se normalizan a hh:mm. |

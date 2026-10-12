@@ -69,6 +69,7 @@ const FERIADOS_DEFECTO = [
 // Oficinas de la OGPL. Prioridad = SI permite reservar una sala ocupada (desplazando a otra oficina).
 // Correo: correo institucional de la oficina, que recibe los avisos cuando una reserva suya es desplazada.
 const OFICINAS_DEFECTO = [
+  ['Oficina General de Planificación', 'NO', '', 'SI'],
   ['Oficina de Presupuesto', 'SI', '', 'SI'],
   ['Oficina de Racionalización', 'NO', '', 'SI'],
   ['Oficina de Estadística e Informática', 'NO', '', 'SI'],
@@ -81,6 +82,7 @@ const ESTADO = { CONFIRMADA: 'CONFIRMADA', CANCELADA: 'CANCELADA' };
 // Reserva rápida (uso inmediato por imprevistos): nombre corto que se muestra y oficina de la pestaña Oficinas
 // de la que se toma el correo. `alias` son otros nombres con los que puede figurar la misma oficina.
 const OFICINAS_RAPIDA = [
+  { corta: 'O. General de Planificación', oficina: 'Oficina General de Planificación', alias: ['OGPL', 'Oficina General de Planificación – UNMSM'] },
   { corta: 'O. Planes y Programas', oficina: 'Oficina de Planes y Programas', alias: [] },
   { corta: 'O. Presupuesto', oficina: 'Oficina de Presupuesto', alias: [] },
   { corta: 'O. Racionalización', oficina: 'Oficina de Racionalización', alias: [] },
@@ -1772,6 +1774,10 @@ function setup() {
 
   const oficinas = libro.getSheetByName(HOJAS.OFICINAS);
   if (oficinas.getLastRow() < 2) OFICINAS_DEFECTO.forEach(r => oficinas.appendRow(r));
+  else { // agrega las oficinas nuevas que falten, sin tocar las existentes
+    const actuales = leerOficinas_();
+    OFICINAS_DEFECTO.forEach(r => { if (!buscarOficina_(r[0], actuales)) oficinas.appendRow(r); });
+  }
 
   const salas = libro.getSheetByName(HOJAS.SALAS);
   if (salas.getLastRow() < 2) {
