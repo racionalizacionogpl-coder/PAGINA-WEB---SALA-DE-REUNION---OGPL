@@ -1,4 +1,4 @@
-# Reserva de Salas – OGPL UNMSM (v4.4: Reserva rápida y horas escritas a mano)
+# Reserva de Salas – OGPL UNMSM (v4.5: Reserva rápida y horas escritas a mano)
 
 Página web publicada desde Google Apps Script. Cada persona ingresa con su **correo y contraseña**, completa el formulario y la reserva queda en Google Sheets. Al reservar o cancelar se envía un correo con el encabezado **"Oficina General de Planificación – UNMSM"** y el escudo de la universidad.
 
@@ -25,6 +25,8 @@ asistente-reservas-ogpp/
 | **Correos de Reserva rápida** | Al pulsar INICIO o FIN se envía un correo solo a los correos de las 5 oficinas (pestaña `Oficinas` › `Correo`), a `CORREOS_NOTIFICACION` y a `CORREOS_RESERVA_RAPIDA`. Se desactiva con `Config › AVISAR_RESERVA_RAPIDA = NO`. |
 | **Registro** | Nueva pestaña `UsoRapido`: sala, oficina, hora de inicio y fin, quién inició y quién finalizó, y duración en minutos. |
 | **Horas escritas a mano** | En *Reservar*, la hora de inicio y de fin se pueden escribir (8:45, 845, 8.45, 2:30 pm) o elegir de la lista. Se normalizan a hh:mm. |
+
+**v4.5:** la tarjeta de la Sala 1 en Reserva rápida muestra una foto en dos mitades: la puerta con el escudo y el membrete de San Marcos (realzados para que se lean mejor) y el interior de la sala. Está en `Fotos.gs` › `FOTO_RAPIDA` (original en `rapida_sala1.jpg`). Al actualizar, reemplaza también `Fotos.gs`.
 
 Reglas de la Reserva rápida:
 - No se puede iniciar si la sala ya está en uso o tiene una reserva programada en curso. Si hay una reserva programada más tarde, la tarjeta la muestra como aviso.

@@ -318,7 +318,7 @@
     @media (prefers-reduced-motion: reduce) { .en-uso-ind i { animation:none; } }
     .cronometro { font-family:var(--f-mono); font-size:30px; font-variant-numeric:tabular-nums; color:var(--ink); }
     .rapida-det { font-size:13px; color:var(--ink-muted); text-align:center; margin:0; }
-    .rapida-foto { width:100%; aspect-ratio:16/9; max-height:220px; background:var(--navy-700) center/cover; border-radius:var(--r-m); display:grid; place-items:center; color:var(--on-navy-muted); font-size:40px; }
+    .rapida-foto { width:100%; aspect-ratio:16/9; max-height:320px; background:var(--navy-700) center/cover; border-radius:var(--r-m); display:grid; place-items:center; color:var(--on-navy-muted); font-size:40px; }
     .rapida-aviso { width:100%; font-size:13px; padding:8px 12px; border-radius:var(--r-s); background:var(--warn-bg); color:var(--warn); text-align:center; }
     /* ---------- Reservar ---------- */
     .reserva-grid { display:grid; grid-template-columns:minmax(0, 1fr) 360px; gap:24px; align-items:start; }
@@ -946,7 +946,7 @@
   /* ---------------- Estado de la aplicación ---------------- */
   let S = null;            // datos de inicio (apiInicio)
   let T = null;            // tablero del día (apiTablero)
-  let FOTOS = {};          // { 'Sala 1': [dataURI, ...] }
+  let FOTOS = {}, FOTOS_RAPIDA = {};          // { 'Sala 1': [dataURI, ...] }
   const carruselIdx = {};  // foto visible por sala
   let verifSeq = 0, verifTimer = null;
   let verifOk = null;      // { sala } cuando el formulario está verificado y libre
@@ -1009,12 +1009,12 @@
     const version = PUBLICO && PUBLICO.version;
     try {
       const c = JSON.parse(sessionStorage.getItem(CLAVE_FOTOS) || 'null');
-      if (c && c.version === version && c.fotos) { FOTOS = c.fotos; aplicarFotos(); return; }
+      if (c && c.version === version && c.fotos) { FOTOS = c.fotos; FOTOS_RAPIDA = c.rapida || {}; aplicarFotos(); return; }
     } catch (e) { /* sin caché */ }
     llamar('apiFotos').then(r => {
       if (!r || !r.ok) return;
-      FOTOS = r.data.fotos || {};
-      try { sessionStorage.setItem(CLAVE_FOTOS, JSON.stringify({ version: r.data.version, fotos: FOTOS })); } catch (e) { /* sin espacio */ }
+      FOTOS = r.data.fotos || {}; FOTOS_RAPIDA = r.data.rapida || {};
+      try { sessionStorage.setItem(CLAVE_FOTOS, JSON.stringify({ version: r.data.version, fotos: FOTOS, rapida: FOTOS_RAPIDA })); } catch (e) { /* sin espacio */ }
       aplicarFotos();
     }).catch(e => console.error(e));
   }
@@ -1348,7 +1348,7 @@
     if (!R) return;
     $('rapidaHora').textContent = 'Estado actualizado a las ' + R.hora;
     $('rapidaGrid').innerHTML = R.salas.map((s, i) => {
-      const foto = fotosDe(s.sala)[0];
+      const foto = FOTOS_RAPIDA[s.sala] || fotosDe(s.sala)[0];
       const titulo = s.sala + (SUFIJO_SALA[i] ? ' – ' + SUFIJO_SALA[i] : '');
       const fotoHtml = '<div class="rapida-foto" style="' + (foto ? 'background-image:url(\'' + foto + '\')' : '') + '" role="img" aria-label="Foto de la ' + esc(s.sala) + '">' + (foto ? '' : ico('sala')) + '</div>';
       const prox = s.proxima ? '<div class="rapida-aviso">Próxima reserva programada: <b>' + s.proxima.hora_inicio + '–' + s.proxima.hora_fin + '</b> · ' + esc(s.proxima.oficina) + '</div>' : '';

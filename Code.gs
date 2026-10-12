@@ -103,7 +103,7 @@ const TONOS = {
   ok: { fg: '#1A7049', bg: '#E1F3EA' }, warn: { fg: '#96590A', bg: '#FDF0D9' },
   crit: { fg: '#B8352C', bg: '#FBE5E3' }, info: { fg: '#087686', bg: '#D3EFF4' }
 };
-const VERSION = '4.4';
+const VERSION = '4.5';
 
 /* ============================================================================
  *  1. PUNTOS DE ENTRADA
@@ -150,14 +150,17 @@ function apiFotos() {
   try {
     const clave = x => String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
     const fuente = typeof FOTOS_SALAS === 'undefined' ? {} : FOTOS_SALAS;
-    const fotos = {};
+    const fuenteRapida = typeof FOTO_RAPIDA === 'undefined' ? {} : FOTO_RAPIDA;
+    const fotos = {}, rapida = {};
     let nombres = Object.keys(fuente);
     try { nombres = leerSalas_().map(s => s.Sala); } catch (e) { /* sin hoja: usa las claves */ }
     nombres.forEach(n => {
       const k = Object.keys(fuente).filter(x => clave(x) === clave(n))[0];
       if (k) fotos[n] = fuente[k].map(b => 'data:image/jpeg;base64,' + b);
+      const kr = Object.keys(fuenteRapida).filter(x => clave(x) === clave(n))[0];
+      if (kr) rapida[n] = 'data:image/jpeg;base64,' + fuenteRapida[kr];
     });
-    return respuesta_(true, 'EXITO', '', { fotos: fotos, version: VERSION });
+    return respuesta_(true, 'EXITO', '', { fotos: fotos, rapida: rapida, version: VERSION });
   } catch (err) {
     return errorInterno_(err);
   }
