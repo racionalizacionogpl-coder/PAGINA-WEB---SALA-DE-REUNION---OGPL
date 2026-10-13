@@ -518,6 +518,8 @@ function apiTablero(token) {
 function apiVerificar(token, form) {
   return api_('verificar', token, usuario => {
     form = form || {};
+    usuario = comoOficina_(usuario, form.oficina);
+    if (!usuario) return datosInvalidos_(['Selecciona una oficina de la lista.']);
     const cfg = leerConfig_();
     const salas = leerSalas_();
     const v = validar_(form, cfg, salas);
@@ -534,6 +536,8 @@ function apiVerificar(token, form) {
 function apiReservar(token, form) {
   return api_('reservar', token, usuario => {
     form = form || {};
+    usuario = comoOficina_(usuario, form.oficina);
+    if (!usuario) return datosInvalidos_(['Selecciona una oficina de la lista.']);
     const lock = LockService.getScriptLock();
     if (!lock.tryLock(20000)) {
       return respuesta_(false, 'ERROR', 'El sistema está atendiendo otra solicitud. Intenta de nuevo en unos segundos.');
@@ -834,6 +838,17 @@ function validarDatosUsuario_(d, errores) {
 }
 
 /** Devuelve el nombre oficial si la oficina está en la pestaña Oficinas (o cualquier texto si la lista está vacía). */
+/**
+ * Los administradores pueden reservar a nombre de otra oficina (form.oficina). Devuelve una copia del
+ * usuario con esa oficina (también define la prioridad). Para los demás se ignora y se usa su oficina.
+ * null si un administrador eligió una oficina que no está en la lista.
+ */
+function comoOficina_(usuario, oficina) {
+  if (usuario.Rol !== 'ADMIN' || !oficina || limpiarTexto_(oficina) === usuario.Oficina) return usuario;
+  const of = oficinaValida_(oficina);
+  return of ? Object.assign({}, usuario, { Oficina: of }) : null;
+}
+
 function oficinaValida_(nombre) {
   const lista = leerOficinas_();
   const limpio = limpiarTexto_(nombre);

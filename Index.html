@@ -644,6 +644,7 @@
               <div class="paso">
                 <h3 class="paso-tit"><span class="n">3</span>Detalles de la reunión</h3>
                 <div class="grid">
+                  <div class="span2" id="wrapOficinaRes" hidden><label for="fOficina">Oficina que reserva <span class="opc">(solo administradores)</span></label><select id="fOficina"></select><div class="ayuda">La reserva quedará a nombre de esta oficina. La confirmación llega a tu correo.</div></div>
                   <div class="span2"><label for="fTema">Tema de la reunión <span class="opc">(opcional)</span></label><input type="text" id="fTema" maxlength="120" placeholder="Reunión de trabajo"></div>
                   <div><label for="fAsistentes">Asistentes <span class="opc">(opcional)</span></label><input type="number" id="fAsistentes" min="1" max="200" placeholder="Ej. 8"></div>
                   <div>
@@ -1111,7 +1112,7 @@
       const b = ev.target.closest('.sala-opcion'); if (!b) return;
       elegirSala(b.dataset.sala); programarVerificacion();
     });
-    ['fFecha', 'fInicio', 'fFin'].forEach(id => $(id).addEventListener('change', programarVerificacion));
+    ['fFecha', 'fInicio', 'fFin', 'fOficina'].forEach(id => $(id).addEventListener('change', programarVerificacion));
     // Las horas se pueden escribir (8:45, 845, 8.45, 14h10, 2:30 pm) o elegir de la lista; se normalizan a hh:mm
     ['fInicio', 'fFin'].forEach(id => {
       const el = $(id);
@@ -1126,6 +1127,7 @@
       verifTimer = setTimeout(() => verificar(true), 300);
     });
     $('fTema').addEventListener('input', actualizarResumen);
+    $('fOficina').addEventListener('change', actualizarResumen);
     $('duraciones').addEventListener('click', e => {
       const b = e.target.closest('button[data-d]'); if (!b) return;
       const hi = normHora($('fInicio').value);
@@ -1168,11 +1170,13 @@
     $('uAvatar').textContent = iniciales(S.usuario.nombre);
     $('uAvatar').title = S.usuario.nombre + ' · ' + S.usuario.correo;
     $('solicitante').innerHTML = '<div><span>Solicitante</span><br><b>' + esc(S.usuario.nombre) + '</b></div>' +
-      '<div><span>Oficina:</span> <b>' + esc(S.usuario.oficina) + '</b></div>' +
+      '<div><span>' + (S.usuario.rol === 'ADMIN' ? 'Tu oficina:' : 'Oficina:') + '</span> <b>' + esc(S.usuario.oficina) + '</b></div>' +
       '<div><span>Correo:</span> ' + esc(S.usuario.correo) + '</div>' +
       (S.usuario.prioridad ? '<span class="pill info">Prioridad de reserva</span>' : '');
     poblarOficinas('nOficina', S.oficinas.map(o => o.oficina), '');
     const esAdmin = S.usuario.rol === 'ADMIN';
+    $('wrapOficinaRes').hidden = !esAdmin;
+    if (esAdmin) poblarOficinas('fOficina', S.oficinas.map(o => o.oficina), S.usuario.oficina);
     $('tabAdmin').style.display = esAdmin ? '' : 'none';
     pintarPendientes(S.pendientes);
 
@@ -1492,6 +1496,7 @@
       '<dt>Duración</dt>' + dd(dur) +
       '<dt>Proyector</dt>' + dd(siNo(f.proyector), 'Indica Sí o No') +
       '<dt>Laptops</dt>' + dd(siNo(f.laptops), 'Indica Sí o No') +
+      (f.oficina ? '<dt>Oficina</dt>' + dd(f.oficina) : '') +
       '<dt>Tema</dt>' + dd(f.tema || 'Reunión de trabajo') +
       '</dl>';
   }
@@ -1515,6 +1520,7 @@
     return {
       sala: $('fSala').value, fecha: $('fFecha').value,
       hora_inicio: normHora($('fInicio').value) || $('fInicio').value.trim(), hora_fin: normHora($('fFin').value) || $('fFin').value.trim(),
+      oficina: S && S.usuario.rol === 'ADMIN' ? $('fOficina').value : '',
       tema: $('fTema').value.trim(), asistentes: $('fAsistentes').value ? +$('fAsistentes').value : 0,
       proyector: valorRadio('proyector'), laptops: valorRadio('laptops')
     };
@@ -1621,7 +1627,7 @@
       '<tr><td>Sala</td><td><b>' + esc(sala) + '</b></td></tr>' +
       '<tr><td>Fecha</td><td><b>' + esc(fechaLarga(f.fecha)) + '</b></td></tr>' +
       '<tr><td>Horario</td><td><b>' + f.hora_inicio + ' – ' + f.hora_fin + '</b></td></tr>' +
-      '<tr><td>Oficina</td><td><b>' + esc(S.usuario.oficina) + '</b></td></tr>' +
+      '<tr><td>Oficina</td><td><b>' + esc(f.oficina || S.usuario.oficina) + '</b></td></tr>' +
       '<tr><td>Tema</td><td><b>' + esc(f.tema || 'Reunión de trabajo') + '</b></td></tr>' +
       '<tr><td>Proyector</td><td><b>' + siNo(f.proyector) + '</b></td></tr>' +
       '<tr><td>Laptops</td><td><b>' + siNo(f.laptops) + '</b></td></tr></table>' +
@@ -1665,6 +1671,7 @@
     ['fFecha', 'fInicio', 'fFin', 'fTema', 'fAsistentes'].forEach(id => { $(id).value = ''; });
     document.querySelectorAll('.seg input').forEach(i => { i.checked = false; });
     document.querySelectorAll('.seg').forEach(x => x.classList.remove('falta'));
+    if (S && S.usuario.rol === 'ADMIN') $('fOficina').value = S.usuario.oficina;
     verifOk = null; $('btnReservar').disabled = true; mostrarEstado('info', '');
     elegirSala('');
   }

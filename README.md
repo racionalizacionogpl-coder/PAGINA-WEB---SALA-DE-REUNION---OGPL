@@ -26,6 +26,8 @@ asistente-reservas-ogpp/
 | **Registro** | Nueva pestaña `UsoRapido`: sala, oficina, hora de inicio y fin, quién inició y quién finalizó, y duración en minutos. |
 | **Horas escritas a mano** | En *Reservar*, la hora de inicio y de fin se pueden escribir (8:45, 845, 8.45, 2:30 pm) o elegir de la lista. Se normalizan a hh:mm. |
 
+**Administradores — reservar por otra oficina:** en *Reservar › 3. Detalles de la reunión* los administradores ven la lista **Oficina que reserva** y pueden registrar la reserva a nombre de cualquier oficina de la pestaña `Oficinas` (la prioridad se aplica según la oficina elegida). Los demás usuarios no ven la lista y siempre reservan por su propia oficina.
+
 **v4.5:** la tarjeta de la Sala 1 en Reserva rápida muestra una foto en dos mitades: la puerta con el escudo y el membrete de San Marcos (en dorado, con el escudo oficial, para que se vean bien; desde la v4.6) y el interior de la sala. Está en `Fotos.gs` › `FOTO_RAPIDA` (original en `rapida_sala1.jpg`). Al actualizar, reemplaza también `Fotos.gs`.
 
 Reglas de la Reserva rápida:
