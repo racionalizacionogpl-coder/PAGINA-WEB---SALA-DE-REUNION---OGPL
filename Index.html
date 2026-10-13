@@ -273,6 +273,43 @@
     .sala-pie { margin-top:auto; display:flex; gap:10px; }
     .sala-pie button { flex:1; }
 
+    /* ---------- Inicio: tarjeta de sala dividida (foto | agenda), pensada también para pantalla grande ---------- */
+    .salas-grid { grid-template-columns:1fr; gap:28px; }
+    .sala-card.split { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr auto; }
+    .split-izq { display:flex; flex-direction:column; border-right:1px solid var(--line); min-width:0; }
+    .split-izq .carrusel { aspect-ratio:auto; flex:1; min-height:340px; }
+    .split-izq .carrusel img { object-position:center 62%; }
+    .split-izq .carrusel .pill { font-size:15px; padding:6px 14px; }
+    .split-izq .carrusel .nombre-foto { font-size:30px; bottom:34px; }
+    .split-izq .sala-datos { padding:16px 20px; font-size:15px; }
+    .split-der { padding:20px 24px; display:flex; flex-direction:column; gap:14px; min-width:0; }
+    .agenda-cab { display:flex; justify-content:space-between; align-items:baseline; gap:12px; flex-wrap:wrap; }
+    .agenda-cab h3 { margin:0; font-size:17px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+    .agenda-cab .pct { font-family:var(--f-display); font-weight:700; color:var(--ink-muted); }
+    .turno { border-radius:var(--r-m); padding:14px 18px; text-align:center; display:flex; flex-direction:column; gap:2px; }
+    .turno.prox { background:#F5B731; color:#2B1D00; box-shadow:0 6px 18px rgba(245,183,49,.35); }
+    .turno.prox.mini { padding:8px 14px; flex-direction:row; justify-content:center; align-items:baseline; gap:10px; flex-wrap:wrap; box-shadow:none; }
+    .turno.prox.mini .turno-hora { font-size:20px; }
+    .turno.curso { background:var(--crit); color:#fff; }
+    .turno.uso { background:#F2C230; color:#2B1D00; }
+    .turno-rot { font-family:var(--f-display); font-size:13px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+    .turno-hora { font-family:var(--f-display); font-size:clamp(30px, 3.4vw, 44px); font-weight:800; line-height:1.1; font-variant-numeric:tabular-nums; }
+    .turno-of { font-size:16px; font-weight:700; }
+    .timeline { list-style:none; margin:0; padding:0; }
+    .timeline li { position:relative; padding:0 0 12px 30px; display:flex; flex-direction:column; }
+    .timeline li::before { content:''; position:absolute; left:6px; top:6px; width:14px; height:14px; border-radius:50%; background:var(--ok); }
+    .timeline li::after { content:''; position:absolute; left:12px; top:24px; bottom:0; width:2px; background:var(--line); }
+    .timeline li:last-child::after { display:none; }
+    .timeline li.ocupada::before { background:var(--crit); }
+    .timeline .hora { font-size:17px; color:var(--ink); display:flex; align-items:center; gap:8px; }
+    .timeline .est { font-weight:700; font-size:15px; color:var(--ok); }
+    .timeline li.ocupada .est { color:var(--crit); }
+    .timeline li.pasado { opacity:.45; }
+    .timeline li.actual::before { box-shadow:0 0 0 4px var(--teal-100); }
+    .tag-ahora { font-style:normal; font-family:var(--f-body); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; background:var(--navy-700); color:#fff; padding:1px 8px; border-radius:999px; }
+    .sala-card.split .sala-pie { grid-column:1 / -1; padding:16px 20px; border-top:1px solid var(--line); }
+    button.grande { padding:13px 16px; font-size:16px; }
+    @media (max-width:820px) { .sala-card.split { grid-template-columns:1fr; } .split-izq { border-right:none; } .split-izq .carrusel { min-height:240px; aspect-ratio:16/10; } }
     /* ---------- Inicio: cuenta regresiva ---------- */
     .regresiva { margin:56px 0 0; background:var(--navy-900); color:#fff; border-radius:var(--r-l); padding:36px 40px; position:relative; overflow:hidden; display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:24px 40px; align-items:center; }
     .regresiva::before { content:''; position:absolute; left:-90px; bottom:-120px; width:300px; height:300px; border-radius:50%; background:radial-gradient(circle, rgba(27,176,196,.28), transparent 70%); }
@@ -318,7 +355,10 @@
     .cronometro { font-family:var(--f-mono); font-size:30px; font-variant-numeric:tabular-nums; color:var(--ink); }
     .rapida-det { font-size:13px; color:var(--ink-muted); text-align:center; margin:0; }
     .rapida-foto { width:100%; aspect-ratio:16/9; max-height:320px; background:var(--navy-700) center/cover; border-radius:var(--r-m); display:grid; place-items:center; color:var(--on-navy-muted); font-size:40px; }
-    .rapida-aviso { width:100%; font-size:13px; padding:8px 12px; border-radius:var(--r-s); background:var(--warn-bg); color:var(--warn); text-align:center; }
+    .rapida-aviso { width:100%; padding:10px 14px; border-radius:var(--r-m); background:#F5B731; color:#1F1500; text-align:center; display:flex; flex-direction:column; gap:2px; box-shadow:0 4px 14px rgba(245,183,49,.35); }
+    .rapida-aviso .rot { font-family:var(--f-display); font-size:12px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+    .rapida-aviso .hora { font-family:var(--f-display); font-size:24px; font-weight:800; font-variant-numeric:tabular-nums; line-height:1.15; }
+    .rapida-aviso .of { font-size:14px; font-weight:700; }
     /* ---------- Reservar ---------- */
     .reserva-grid { display:grid; grid-template-columns:minmax(0, 1fr) 360px; gap:24px; align-items:start; }
     @media (max-width:1040px) { .reserva-grid { grid-template-columns:1fr; } }
@@ -1200,6 +1240,10 @@
 
     semanaRef = null; semanaDatos = null; misDatos = null; usuariosDatos = null; T = null;
     limpiarForm(); mostrarFormulario(); subAdmin('reservas', true); mostrar('inicio');
+    // Pantalla grande: Inicio se actualiza solo cada minuto mientras está visible
+    if (!window.__tableroAuto) window.__tableroAuto = setInterval(() => {
+      if (S && !document.hidden && $('v-inicio').classList.contains('visible')) cargarTablero();
+    }, 60000);
   }
 
   function rangoDias(ds) {
@@ -1289,19 +1333,63 @@
         (s.capacidad ? '<span>' + ico('personas') + 'Hasta ' + s.capacidad + ' personas</span>' : '') +
         (s.ubicacion ? '<span>' + ico('ubicacion') + esc(s.ubicacion) + '</span>' : '') +
         (s.equipamiento ? '<span>' + ico('proyector') + esc(s.equipamiento) + '</span>' : '') + '</div>';
-      const barra = '<div><div class="agenda-tit"><b>Agenda del ' + (T.es_hoy ? 'día' : fechaCorta(T.dia)) + '</b><span>' + s.ocupacion_pct + '% ocupada</span></div>' +
-        '<div class="barra-dia" role="img" aria-label="Ocupación del día ' + s.ocupacion_pct + '%">' +
-        s.reservas.map(r => '<div class="seg-ocupado ' + (r.propia ? 'propia' : '') + '" style="left:' + pct(aMin(r.hora_inicio)) + '%;width:' + (pct(aMin(r.hora_fin)) - pct(aMin(r.hora_inicio))) + '%" title="' + esc(r.hora_inicio + '–' + r.hora_fin + ' · ' + r.oficina) + '"></div>').join('') +
-        (T.es_hoy && ahoraMin >= ap && ahoraMin <= ci ? '<div class="marca-ahora" style="left:' + pct(ahoraMin) + '%" title="Ahora ' + T.hora + '"></div>' : '') +
-        '</div><div class="barra-horas"><span>' + S.cfg.apertura + '</span><span>' + medio + '</span><span>' + S.cfg.cierre + '</span></div></div>';
-      const lista = s.reservas.length
-        ? '<ul class="lista-dia">' + s.reservas.map(r => '<li class="' + (r.propia ? 'propia' : '') + '"><span class="mono">' + r.hora_inicio + '–' + r.hora_fin + '</span><span class="of">' + esc(r.oficina) + (r.propia ? ' · tu reserva' : '') + '</span></li>').join('') + '</ul>'
-        : '<p class="ayuda" style="margin:0">Sin reservas para este día.</p>';
-      return '<article class="sala-card">' + carrusel + '<div class="sala-cuerpo">' + datos + barra + lista +
-        '<div class="sala-pie"><button class="secundario" data-reservar="' + esc(s.sala) + '">' + ico('calendario') + 'Reservar ' + esc(s.sala) + '</button></div></div></article>';
+      const agenda = agendaSala(s, ap, ci, ahoraMin);
+      return '<article class="sala-card split">' +
+        '<div class="split-izq">' + carrusel + datos + '</div>' +
+        '<div class="split-der">' + agenda + '</div>' +
+        '<div class="sala-pie"><button class="secundario grande" data-reservar="' + esc(s.sala) + '">' + ico('calendario') + 'Reservar ' + esc(s.sala) + '</button></div></article>';
     }).join('') || '<div class="vacio">No hay salas activas.</div>';
 
     pintarRegresiva();
+  }
+
+  /**
+   * Agenda lateral de una sala: tarjeta destacada (en uso / en curso / próxima) y línea de tiempo con
+   * bloques Libre / Ocupada entre la apertura y el cierre. Sin reservas en el día no hay tarjeta destacada.
+   */
+  function agendaSala(s, ap, ci, ahoraMin) {
+    const rs = s.reservas.slice().sort((a, b) => aMin(a.hora_inicio) - aMin(b.hora_inicio));
+    const enCurso = T.es_hoy ? rs.filter(r => aMin(r.hora_inicio) <= ahoraMin && aMin(r.hora_fin) > ahoraMin)[0] : null;
+    const proxima = rs.filter(r => !T.es_hoy || aMin(r.hora_inicio) > ahoraMin)[0];
+    let destacada = '';
+    const tarjeta = (cls, rot, hora, of) => '<div class="turno ' + cls + '"><span class="turno-rot">' + rot + '</span>' +
+      '<b class="turno-hora">' + hora + '</b><span class="turno-of">' + esc(of) + '</span></div>';
+    if (s.rapida && T.es_hoy) destacada = tarjeta('uso', 'En uso · Reserva rápida', 'Desde las ' + s.desde, s.oficina);
+    else if (enCurso) destacada = tarjeta('curso', 'Reunión en curso', enCurso.hora_inicio + ' – ' + enCurso.hora_fin, enCurso.oficina);
+    if (proxima && !(enCurso && proxima === enCurso)) {
+      destacada += tarjeta(destacada ? 'prox mini' : 'prox', 'Próxima reserva', proxima.hora_inicio + ' – ' + proxima.hora_fin, proxima.oficina);
+    }
+    // Bloques: reservas y huecos libres entre la apertura y el cierre
+    const bloques = [];
+    // Los tramos libres se parten en bloques de 90 min contados desde la apertura (08:00, 09:30, 11:00…)
+    const libres = (a, b) => {
+      let x = a;
+      while (x < b) {
+        const corte = ap + (Math.floor((x - ap) / 90) + 1) * 90;
+        const y = Math.min(b, corte);
+        if (y - x >= 15 || !bloques.length || y === b) bloques.push({ a: x, b: y, libre: true });
+        else bloques[bloques.length - 1].b = y; // evita bloques de menos de 15 min
+        x = y;
+      }
+    };
+    let t = ap;
+    rs.forEach(r => {
+      const a = Math.max(ap, aMin(r.hora_inicio)), b = Math.min(ci, aMin(r.hora_fin));
+      if (a > t) libres(t, a);
+      if (b > a) bloques.push({ a: a, b: b, libre: false, r: r });
+      t = Math.max(t, b);
+    });
+    if (t < ci) libres(t, ci);
+    const linea = bloques.map(k => {
+      const pasado = T.es_hoy && k.b <= ahoraMin, ahora = T.es_hoy && k.a <= ahoraMin && k.b > ahoraMin;
+      const libre = k.libre && !(ahora && s.rapida);
+      const estado = libre ? 'Libre' : (k.r ? 'Ocupada · ' + k.r.oficina + (k.r.propia ? ' (tu reserva)' : '') : 'En uso · ' + s.oficina);
+      return '<li class="' + (libre ? 'libre' : 'ocupada') + (pasado ? ' pasado' : '') + (ahora ? ' actual' : '') + '">' +
+        '<span class="hora mono">' + aHora(k.a) + ' – ' + aHora(k.b) + (ahora ? '<i class="tag-ahora">Ahora</i>' : '') + '</span>' +
+        '<span class="est">' + esc(estado) + '</span></li>';
+    }).join('');
+    return '<div class="agenda-cab"><h3>Agenda ' + (T.es_hoy ? 'del día' : 'del ' + fechaCorta(T.dia)) + '</h3><span class="pct">' + s.ocupacion_pct + '% ocupada</span></div>' +
+      destacada + '<ul class="timeline">' + linea + '</ul>';
   }
 
   function clicSalas(ev) {
@@ -1352,7 +1440,7 @@
       const foto = FOTOS_RAPIDA[s.sala] || fotosDe(s.sala)[0];
       const titulo = s.sala + (SUFIJO_SALA[i] ? ' – ' + SUFIJO_SALA[i] : '');
       const fotoHtml = '<div class="rapida-foto" style="' + (foto ? 'background-image:url(\'' + foto + '\')' : '') + '" role="img" aria-label="Foto de la ' + esc(s.sala) + '">' + (foto ? '' : ico('sala')) + '</div>';
-      const prox = s.proxima ? '<div class="rapida-aviso">Próxima reserva programada: <b>' + s.proxima.hora_inicio + '–' + s.proxima.hora_fin + '</b> · ' + esc(s.proxima.oficina) + '</div>' : '';
+      const prox = s.proxima ? '<div class="rapida-aviso" role="note"><span class="rot">Próxima reserva programada</span><span class="hora">' + s.proxima.hora_inicio + ' – ' + s.proxima.hora_fin + '</span><span class="of">' + esc(s.proxima.oficina) + '</span></div>' : '';
       let cuerpo, pill;
       if (s.estado === 'EN_USO') {
         pill = '<span class="pill warn">En uso</span>';
